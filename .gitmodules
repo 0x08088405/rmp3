@@ -1,0 +1,3 @@
+[submodule "ffi/minimp3"]
+	path = ffi/minimp3
+	url = https://github.com/lieff/minimp3.git
