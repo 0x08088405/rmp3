@@ -32,7 +32,8 @@ pub struct Frame<'a> {
     pub samples: &'a [Sample],
 
     /// Sample count per channel.
-    /// Should be identical to `samples.len() / channels` unless you used peek_frame.
+    /// Should be identical to `samples.len() / channels`
+    /// unless you used [peek_frame](struct.Decoder.html#method.peek_frame).
     pub sample_count: usize,
 
     /// Sample rate of this frame in Hz.
@@ -43,6 +44,7 @@ pub struct Frame<'a> {
 }
 
 impl<'a> Decoder<'a> {
+    /// Creates a decoder over `data` (mp3 bytes).
     pub fn new(data: &'a (impl AsRef<[u8]> + ?Sized)) -> Self {
         Self {
             data: data.as_ref(),
@@ -56,6 +58,7 @@ impl<'a> Decoder<'a> {
         }
     }
 
+    /// Reads the next frame, if available.
     pub fn next_frame(&mut self) -> Option<Frame> {
         unsafe {
             let mut samples = self.ffi_decode_frame();
@@ -81,6 +84,12 @@ impl<'a> Decoder<'a> {
         }
     }
 
+    /// Reads a frame without actually decoding it or advancing.
+    /// Useful when you want to, for example, calculate the audio length.
+    /// 
+    /// It should be noted that the [samples](struct.Frame.html#structfield.sample_count)
+    /// in [Frame](struct.Frame.html) are an empty slice,
+    /// but you can still read its [sample_count](struct.Frame.html#structfield.sample_count).
     pub fn peek_frame(&mut self) -> Option<Frame> {
         let samples = unsafe { self.ffi_decode_frame() };
         if self.ffi_frame.frame_bytes != 0 {
@@ -98,8 +107,11 @@ impl<'a> Decoder<'a> {
         }
     }
 
-    pub fn skip_frame(&mut self, frame_bytes: usize) {
-        self.data = self.data.get(..frame_bytes).unwrap_or(&[]);
+    /// Skips ahead by `frame_length` bytes.
+    /// Should be used in combination with [peek_frame](struct.Decoder.html#method.peek_frame)
+    /// so you know how long the frame is.
+    pub fn skip_frame(&mut self, frame_length: usize) {
+        self.data = self.data.get(..frame_length).unwrap_or(&[]);
     }
 
     unsafe fn ffi_decode_frame(&mut self) -> c_int {
