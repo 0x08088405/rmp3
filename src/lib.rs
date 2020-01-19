@@ -13,7 +13,7 @@ pub mod ffi {
 }
 
 /// Used to represent one PCM sample in output data (conditional).
-/// 
+///
 /// Normally a signed 16-bit integer (i16), but if the "float" feature is enabled,
 /// it's a 32-bit single precision float (f32).
 #[cfg(not(feature = "float"))]
@@ -74,17 +74,18 @@ impl<'a> Decoder<'a> {
     /// If non-sample data (ex. ID3) is found it's skipped over until samples are found.
     pub fn next_frame(&mut self) -> Option<Frame> {
         unsafe {
-            let mut samples =
+            let samples =
                 self.ffi_decode_frame(self.data.as_ptr(), self.data.len() as c_int) as u32;
             self.data = self
                 .data
                 .get_unchecked(self.ffi_frame.frame_bytes as usize..);
             if samples > 0 {
-                samples *= self.ffi_frame.channels as u32;
                 Some(Frame {
                     bitrate: self.ffi_frame.bitrate_kbps as u32,
                     channels: self.ffi_frame.channels as u32,
-                    samples: self.pcm.get_unchecked(..samples as usize), // todo: feature?
+                    samples: self
+                        .pcm
+                        .get_unchecked(..(samples * self.ffi_frame.channels as u32) as usize), // todo: feature?
                     sample_rate: self.ffi_frame.hz as u32,
                     mpeg_layer: self.ffi_frame.layer as u32,
                     sample_count: samples,
