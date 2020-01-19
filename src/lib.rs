@@ -19,11 +19,20 @@ pub struct Decoder<'a> {
 }
 
 pub struct Frame<'a> {
-    pub samples: &'a [Sample],
-    pub sample_rate: i32,
+    /// Bitrate of this frame in kb/s.
+    pub bitrate_kbps: i32,
+
+    /// Number of channels in this frame.
     pub channels: i32,
-    pub mpeg_layer: i32, // probably enumifiable
-    pub bitrate: i32,    // kb/s
+
+    /// MPEG layer of this frame.
+    pub mpeg_layer: i32, // TODO: Enumify
+
+    /// Reference to the samples in this frame, copy if needed to allocate.
+    pub samples: &'a [Sample],
+
+    /// Sample rate of this frame in Hz.
+    pub sample_rate: i32,
 }
 
 impl<'a> Decoder<'a> {
@@ -59,7 +68,7 @@ impl<'a> Decoder<'a> {
                     sample_rate: self.ffi_frame.hz,
                     channels: self.ffi_frame.channels,
                     mpeg_layer: self.ffi_frame.layer,
-                    bitrate: self.ffi_frame.bitrate_kbps,
+                    bitrate_kbps: self.ffi_frame.bitrate_kbps,
                 })
             } else if self.ffi_frame.frame_bytes != 0 {
                 self.next_frame()
