@@ -30,6 +30,7 @@ pub struct Decoder<'a> {
 }
 
 /// Info about the current frame yielded by a [Decoder](struct.Decoder.html).
+#[derive(Debug)]
 pub struct Frame<'a> {
     /// Bitrate of the source frame in kb/s.
     pub bitrate: u32,
