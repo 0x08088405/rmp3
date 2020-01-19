@@ -17,11 +17,6 @@ pub type Sample = i16;
 #[cfg(feature = "float")]
 pub type Sample = f32;
 
-
-#[cfg(feature = "float")]
-compile_error!("HI if you discover the float feature before i add it tomorrow
-like its not actually functional don't use it thanks");
-
 pub struct Decoder<'a> {
     data: &'a [u8],
     ffi_frame: ffi::mp3dec_frame_info_t,
