@@ -6,6 +6,9 @@ fn main() {
         .include("ffi/minimp3")
         .define("MINIMP3_IMPLEMENTATION", None);
 
+    if cfg!(feature = "float") {
+        build.define("MINIMP3_FLOAT_OUTPUT", None);
+    }
     if cfg!(feature = "no-simd") {
         build.define("MINIMP3_NO_SIMD", None);
     }
