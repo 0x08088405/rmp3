@@ -23,10 +23,10 @@ pub struct Decoder<'a> {
 
 pub struct Frame<'a> {
     /// Bitrate of this frame in kb/s.
-    pub bitrate_kbps: i32,
+    pub bitrate: u32,
 
     /// Number of channels in this frame.
-    pub channels: i32,
+    pub channels: u32,
 
     /// MPEG layer of this frame.
     pub mpeg_layer: i32, // TODO: Enumify
@@ -72,8 +72,8 @@ impl<'a> Decoder<'a> {
             if samples > 0 {
                 samples *= self.ffi_frame.channels as u32;
                 Some(Frame {
-                    bitrate_kbps: self.ffi_frame.bitrate_kbps,
-                    channels: self.ffi_frame.channels,
+                    bitrate: self.ffi_frame.bitrate_kbps as u32,
+                    channels: self.ffi_frame.channels as u32,
                     samples: self.pcm.get_unchecked(..samples as usize), // todo: feature?
                     sample_rate: self.ffi_frame.hz as u32,
                     mpeg_layer: self.ffi_frame.layer,
@@ -98,8 +98,8 @@ impl<'a> Decoder<'a> {
         let samples = unsafe { self.ffi_decode_frame(ptr::null(), 0) as u32 };
         if self.ffi_frame.frame_bytes != 0 {
             Some(Frame {
-                bitrate_kbps: self.ffi_frame.bitrate_kbps,
-                channels: self.ffi_frame.channels,
+                bitrate: self.ffi_frame.bitrate_kbps as u32,
+                channels: self.ffi_frame.channels as u32,
                 mpeg_layer: self.ffi_frame.layer,
                 samples: &[],
                 sample_rate: self.ffi_frame.hz as u32,
