@@ -34,7 +34,7 @@ pub struct Frame<'a> {
     /// Sample count per channel.
     /// Should be identical to `samples.len() / channels`
     /// unless you used [peek_frame](struct.Decoder.html#method.peek_frame).
-    pub sample_count: usize,
+    pub sample_count: u32,
 
     /// Sample rate of this frame in Hz.
     pub sample_rate: i32,
@@ -61,19 +61,19 @@ impl<'a> Decoder<'a> {
     /// Reads the next frame, if available.
     pub fn next_frame(&mut self) -> Option<Frame> {
         unsafe {
-            let mut samples = self.ffi_decode_frame();
+            let mut samples = self.ffi_decode_frame() as u32;
             self.data = self
                 .data
                 .get_unchecked(self.ffi_frame.frame_bytes as usize..);
             if samples > 0 {
-                samples *= self.ffi_frame.channels;
+                samples *= self.ffi_frame.channels as u32;
                 Some(Frame {
                     bitrate_kbps: self.ffi_frame.bitrate_kbps,
                     channels: self.ffi_frame.channels,
                     samples: self.pcm.get_unchecked(..samples as usize), // todo: feature?
                     sample_rate: self.ffi_frame.hz,
                     mpeg_layer: self.ffi_frame.layer,
-                    sample_count: samples as usize,
+                    sample_count: samples,
                     source_len: self.ffi_frame.frame_bytes as usize,
                 })
             } else if self.ffi_frame.frame_bytes != 0 {
@@ -86,12 +86,12 @@ impl<'a> Decoder<'a> {
 
     /// Reads a frame without actually decoding it or advancing.
     /// Useful when you want to, for example, calculate the audio length.
-    /// 
+    ///
     /// It should be noted that the [samples](struct.Frame.html#structfield.sample_count)
     /// in [Frame](struct.Frame.html) are an empty slice,
     /// but you can still read its [sample_count](struct.Frame.html#structfield.sample_count).
     pub fn peek_frame(&mut self) -> Option<Frame> {
-        let samples = unsafe { self.ffi_decode_frame() };
+        let samples = unsafe { self.ffi_decode_frame() } as u32;
         if self.ffi_frame.frame_bytes != 0 {
             Some(Frame {
                 bitrate_kbps: self.ffi_frame.bitrate_kbps,
@@ -99,7 +99,7 @@ impl<'a> Decoder<'a> {
                 mpeg_layer: self.ffi_frame.layer,
                 samples: &[],
                 sample_rate: self.ffi_frame.hz,
-                sample_count: samples as usize,
+                sample_count: samples,
                 source_len: self.ffi_frame.frame_bytes as usize,
             })
         } else {
