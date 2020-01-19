@@ -13,4 +13,5 @@ libc = "0.2"
 [features]
 default = ["only-mp3"]
 float = []
+no-simd = []
 only-mp3 = []

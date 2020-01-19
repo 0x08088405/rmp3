@@ -6,6 +6,9 @@ fn main() {
         .include("ffi/minimp3")
         .define("MINIMP3_IMPLEMENTATION", None);
 
+    if cfg!(feature = "no-simd") {
+        build.define("MINIMP3_NO_SIMD", None);
+    }
     if cfg!(feature = "only-mp3") {
         build.define("MINIMP3_ONLY_MP3", None);
     }
