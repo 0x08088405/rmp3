@@ -12,7 +12,15 @@ pub mod ffi {
     include!("bindings.rs");
 }
 
-pub type Sample = ffi::mp3d_sample_t; // conditionally replace this later if mp3 should produce float
+#[cfg(not(feature = "float"))]
+pub type Sample = i16;
+#[cfg(feature = "float")]
+pub type Sample = f32;
+
+
+#[cfg(feature = "float")]
+compile_error!("HI if you discover the float feature before i add it tomorrow
+like its not actually functional don't use it thanks");
 
 pub struct Decoder<'a> {
     data: &'a [u8],
