@@ -31,8 +31,15 @@ pub struct Frame<'a> {
     /// Reference to the samples in this frame, copy if needed to allocate.
     pub samples: &'a [Sample],
 
+    /// Sample count per channel.
+    /// Should be identical to `samples.len() / channels` unless you used peek_frame.
+    pub sample_count: usize,
+
     /// Sample rate of this frame in Hz.
     pub sample_rate: i32,
+
+    /// Size of the source frame in bytes.
+    pub source_len: usize,
 }
 
 impl<'a> Decoder<'a> {
@@ -51,24 +58,20 @@ impl<'a> Decoder<'a> {
 
     pub fn next_frame(&mut self) -> Option<Frame> {
         unsafe {
-            let mut samples = ffi::mp3dec_decode_frame(
-                &mut self.instance,       // mp3dec instance
-                self.data.as_ptr(),       // data pointer
-                self.data.len() as c_int, // pointer length
-                self.pcm.as_mut_ptr(),    // output buffer
-                &mut self.ffi_frame,      // frame info
-            );
+            let mut samples = self.ffi_decode_frame();
             self.data = self
                 .data
                 .get_unchecked(self.ffi_frame.frame_bytes as usize..);
             if samples > 0 {
                 samples *= self.ffi_frame.channels;
                 Some(Frame {
+                    bitrate_kbps: self.ffi_frame.bitrate_kbps,
+                    channels: self.ffi_frame.channels,
                     samples: self.pcm.get_unchecked(..samples as usize), // todo: feature?
                     sample_rate: self.ffi_frame.hz,
-                    channels: self.ffi_frame.channels,
                     mpeg_layer: self.ffi_frame.layer,
-                    bitrate_kbps: self.ffi_frame.bitrate_kbps,
+                    sample_count: samples as usize,
+                    source_len: self.ffi_frame.frame_bytes as usize,
                 })
             } else if self.ffi_frame.frame_bytes != 0 {
                 self.next_frame()
@@ -76,5 +79,36 @@ impl<'a> Decoder<'a> {
                 None
             }
         }
+    }
+
+    pub fn peek_frame(&mut self) -> Option<Frame> {
+        let samples = unsafe { self.ffi_decode_frame() };
+        if self.ffi_frame.frame_bytes != 0 {
+            Some(Frame {
+                bitrate_kbps: self.ffi_frame.bitrate_kbps,
+                channels: self.ffi_frame.channels,
+                mpeg_layer: self.ffi_frame.layer,
+                samples: &[],
+                sample_rate: self.ffi_frame.hz,
+                sample_count: samples as usize,
+                source_len: self.ffi_frame.frame_bytes as usize,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn skip_frame(&mut self, frame_bytes: usize) {
+        self.data = self.data.get(..frame_bytes).unwrap_or(&[]);
+    }
+
+    unsafe fn ffi_decode_frame(&mut self) -> c_int {
+        ffi::mp3dec_decode_frame(
+            &mut self.instance,       // mp3dec instance
+            self.data.as_ptr(),       // data pointer
+            self.data.len() as c_int, // pointer length
+            self.pcm.as_mut_ptr(),    // output buffer
+            &mut self.ffi_frame,      // frame info
+        )
     }
 }
