@@ -4,7 +4,7 @@ Idiomatic bindings to `minimp3` that don't allocate.
 ## Usage
 ```rust
 let mut decoder = rmp3::Decoder::new(&your_data);
-while let Some(rmp3::Frame { bitrate, channels, sample_rate, samples, .. }) = decoder.next_frame() {
+while let Some(rmp3::Frame { channels, sample_rate, samples, .. }) = decoder.next_frame() {
     /* process frame data */
 }
 ```

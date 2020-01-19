@@ -31,7 +31,7 @@ pub struct Decoder<'a> {
 
 /// Info about the current frame yielded by a [Decoder](struct.Decoder.html).
 pub struct Frame<'a> {
-    /// Bitrate of this frame in kb/s.
+    /// Bitrate of the source frame in kb/s.
     pub bitrate: u32,
 
     /// Number of channels in this frame.
