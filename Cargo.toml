@@ -11,5 +11,6 @@ cc = "1.0"
 libc = "0.2"
 
 [features]
-default = []
+default = ["only-mp3"]
 float = []
+only-mp3 = []
