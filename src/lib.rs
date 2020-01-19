@@ -75,8 +75,8 @@ impl<'a> Decoder<'a> {
     /// If non-sample data (ex. ID3) is found it's skipped over until samples are found.
     pub fn next_frame(&mut self) -> Option<Frame> {
         unsafe {
-            let samples =
-                self.ffi_decode_frame(self.data.as_ptr(), self.data.len() as c_int) as u32;
+            let out_ptr: *mut Sample = self.pcm.as_mut_ptr();
+            let samples = self.ffi_decode_frame(out_ptr) as u32;
             self.data = self
                 .data
                 .get_unchecked(self.ffi_frame.frame_bytes as usize..);
@@ -111,7 +111,7 @@ impl<'a> Decoder<'a> {
     /// Unlike [next_frame](struct.Frame.html#method.next_frame), it will **not** be skipped over
     /// automatically, but you can still of course call `skip_frame(frame.source_len)` on it.
     pub fn peek_frame(&mut self) -> Option<Frame> {
-        let samples = unsafe { self.ffi_decode_frame(ptr::null(), 0) as u32 };
+        let samples = unsafe { self.ffi_decode_frame(ptr::null_mut()) as u32 };
         if self.ffi_frame.frame_bytes != 0 {
             Some(Frame {
                 bitrate: self.ffi_frame.bitrate_kbps as u32,
@@ -134,13 +134,13 @@ impl<'a> Decoder<'a> {
         self.data = self.data.get(..frame_length).unwrap_or(&[]);
     }
 
-    unsafe fn ffi_decode_frame(&mut self, data: *const u8, len: c_int) -> c_int {
+    unsafe fn ffi_decode_frame(&mut self, pcm: *mut Sample) -> c_int {
         ffi::mp3dec_decode_frame(
-            &mut self.instance,    // mp3dec instance
-            data,                  // data pointer
-            len,                   // pointer length
-            self.pcm.as_mut_ptr(), // output buffer
-            &mut self.ffi_frame,   // frame info
+            &mut self.instance,       // mp3dec instance
+            self.data.as_ptr(),       // data pointer
+            self.data.len() as c_int, // pointer length
+            pcm,                      // output buffer
+            &mut self.ffi_frame,      // frame info
         )
     }
 }
