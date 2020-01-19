@@ -12,13 +12,13 @@ pub mod ffi {
     include!("bindings.rs");
 }
 
-pub type Sample = i16; // conditionally replace this later if mp3 should produce float
+pub type Sample = ffi::mp3d_sample_t; // conditionally replace this later if mp3 should produce float
 
 pub struct Decoder<'a> {
     data: &'a [u8],
     ffi_frame: ffi::mp3dec_frame_info_t,
     instance: ffi::mp3dec_t,
-    pcm: [i16; ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as usize],
+    pcm: [Sample; ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as usize],
 }
 
 pub struct Frame<'a> {
