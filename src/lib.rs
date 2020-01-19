@@ -1,4 +1,7 @@
-use std::{mem, os::raw::c_int};
+use core::{mem, ptr};
+
+#[allow(non_camel_case_types)]
+type c_int = i32; // since no_std, not importing libc for this LOL
 
 /// Raw minimp3 bindings if you need them for whatever reason.
 ///
@@ -9,7 +12,7 @@ pub mod ffi {
     include!("bindings.rs");
 }
 
-type Sample = i16; // conditionally replace this later if mp3 should produce float
+pub type Sample = i16; // conditionally replace this later if mp3 should produce float
 
 pub struct Decoder<'a> {
     data: &'a [u8],
@@ -61,7 +64,8 @@ impl<'a> Decoder<'a> {
     /// Reads the next frame, if available.
     pub fn next_frame(&mut self) -> Option<Frame> {
         unsafe {
-            let mut samples = self.ffi_decode_frame() as u32;
+            let mut samples =
+                self.ffi_decode_frame(self.data.as_ptr(), self.data.len() as c_int) as u32;
             self.data = self
                 .data
                 .get_unchecked(self.ffi_frame.frame_bytes as usize..);
@@ -91,7 +95,7 @@ impl<'a> Decoder<'a> {
     /// in [Frame](struct.Frame.html) are an empty slice,
     /// but you can still read its [sample_count](struct.Frame.html#structfield.sample_count).
     pub fn peek_frame(&mut self) -> Option<Frame> {
-        let samples = unsafe { self.ffi_decode_frame() } as u32;
+        let samples = unsafe { self.ffi_decode_frame(ptr::null(), 0) as u32 };
         if self.ffi_frame.frame_bytes != 0 {
             Some(Frame {
                 bitrate_kbps: self.ffi_frame.bitrate_kbps,
@@ -114,13 +118,13 @@ impl<'a> Decoder<'a> {
         self.data = self.data.get(..frame_length).unwrap_or(&[]);
     }
 
-    unsafe fn ffi_decode_frame(&mut self) -> c_int {
+    unsafe fn ffi_decode_frame(&mut self, data: *const u8, len: c_int) -> c_int {
         ffi::mp3dec_decode_frame(
-            &mut self.instance,       // mp3dec instance
-            self.data.as_ptr(),       // data pointer
-            self.data.len() as c_int, // pointer length
-            self.pcm.as_mut_ptr(),    // output buffer
-            &mut self.ffi_frame,      // frame info
+            &mut self.instance,    // mp3dec instance
+            data,                  // data pointer
+            len,                   // pointer length
+            self.pcm.as_mut_ptr(), // output buffer
+            &mut self.ffi_frame,   // frame info
         )
     }
 }
