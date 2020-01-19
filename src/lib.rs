@@ -40,7 +40,7 @@ pub struct Frame<'a> {
     pub sample_count: u32,
 
     /// Sample rate of this frame in Hz.
-    pub sample_rate: i32,
+    pub sample_rate: u32,
 
     /// Size of the source frame in bytes.
     pub source_len: usize,
@@ -75,7 +75,7 @@ impl<'a> Decoder<'a> {
                     bitrate_kbps: self.ffi_frame.bitrate_kbps,
                     channels: self.ffi_frame.channels,
                     samples: self.pcm.get_unchecked(..samples as usize), // todo: feature?
-                    sample_rate: self.ffi_frame.hz,
+                    sample_rate: self.ffi_frame.hz as u32,
                     mpeg_layer: self.ffi_frame.layer,
                     sample_count: samples,
                     source_len: self.ffi_frame.frame_bytes as usize,
@@ -102,7 +102,7 @@ impl<'a> Decoder<'a> {
                 channels: self.ffi_frame.channels,
                 mpeg_layer: self.ffi_frame.layer,
                 samples: &[],
-                sample_rate: self.ffi_frame.hz,
+                sample_rate: self.ffi_frame.hz as u32,
                 sample_count: samples,
                 source_len: self.ffi_frame.frame_bytes as usize,
             })
