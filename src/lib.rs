@@ -1,7 +1,7 @@
-use core::{mem, ptr};
+#![no_std]
 
-#[allow(non_camel_case_types)]
-type c_int = i32; // since no_std, not importing libc for this LOL
+use core::{mem, ptr};
+use libc::c_int;
 
 /// Raw minimp3 bindings if you need them for whatever reason.
 ///

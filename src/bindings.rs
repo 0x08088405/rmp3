@@ -15,12 +15,12 @@ pub const WCHAR_MAX: u32 = 65535;
 pub const WINT_MIN: u32 = 0;
 pub const WINT_MAX: u32 = 65535;
 pub const MINIMP3_MAX_SAMPLES_PER_FRAME: u32 = 2304;
-pub type va_list = *mut ::std::os::raw::c_char;
+pub type va_list = *mut libc::c_char;
 extern "C" {
-    pub fn __va_start(arg1: *mut *mut ::std::os::raw::c_char, ...);
+    pub fn __va_start(arg1: *mut *mut libc::c_char, ...);
 }
 pub type __vcrt_bool = bool;
-pub type wchar_t = ::std::os::raw::c_ushort;
+pub type wchar_t = libc::c_ushort;
 extern "C" {
     pub fn __security_init_cookie();
 }
@@ -33,47 +33,49 @@ extern "C" {
 extern "C" {
     pub static mut __security_cookie: usize;
 }
-pub type int_least8_t = ::std::os::raw::c_schar;
-pub type int_least16_t = ::std::os::raw::c_short;
-pub type int_least32_t = ::std::os::raw::c_int;
-pub type int_least64_t = ::std::os::raw::c_longlong;
-pub type uint_least8_t = ::std::os::raw::c_uchar;
-pub type uint_least16_t = ::std::os::raw::c_ushort;
-pub type uint_least32_t = ::std::os::raw::c_uint;
-pub type uint_least64_t = ::std::os::raw::c_ulonglong;
-pub type int_fast8_t = ::std::os::raw::c_schar;
-pub type int_fast16_t = ::std::os::raw::c_int;
-pub type int_fast32_t = ::std::os::raw::c_int;
-pub type int_fast64_t = ::std::os::raw::c_longlong;
-pub type uint_fast8_t = ::std::os::raw::c_uchar;
-pub type uint_fast16_t = ::std::os::raw::c_uint;
-pub type uint_fast32_t = ::std::os::raw::c_uint;
-pub type uint_fast64_t = ::std::os::raw::c_ulonglong;
-pub type intmax_t = ::std::os::raw::c_longlong;
-pub type uintmax_t = ::std::os::raw::c_ulonglong;
+pub type int_least8_t = libc::c_schar;
+pub type int_least16_t = libc::c_short;
+pub type int_least32_t = libc::c_int;
+pub type int_least64_t = libc::c_longlong;
+pub type uint_least8_t = libc::c_uchar;
+pub type uint_least16_t = libc::c_ushort;
+pub type uint_least32_t = libc::c_uint;
+pub type uint_least64_t = libc::c_ulonglong;
+pub type int_fast8_t = libc::c_schar;
+pub type int_fast16_t = libc::c_int;
+pub type int_fast32_t = libc::c_int;
+pub type int_fast64_t = libc::c_longlong;
+pub type uint_fast8_t = libc::c_uchar;
+pub type uint_fast16_t = libc::c_uint;
+pub type uint_fast32_t = libc::c_uint;
+pub type uint_fast64_t = libc::c_ulonglong;
+pub type intmax_t = libc::c_longlong;
+pub type uintmax_t = libc::c_ulonglong;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct mp3dec_frame_info_t {
-    pub frame_bytes: ::std::os::raw::c_int,
-    pub channels: ::std::os::raw::c_int,
-    pub hz: ::std::os::raw::c_int,
-    pub layer: ::std::os::raw::c_int,
-    pub bitrate_kbps: ::std::os::raw::c_int,
+    pub frame_bytes: libc::c_int,
+    pub channels: libc::c_int,
+    pub hz: libc::c_int,
+    pub layer: libc::c_int,
+    pub bitrate_kbps: libc::c_int,
 }
 #[test]
 fn bindgen_test_layout_mp3dec_frame_info_t() {
     assert_eq!(
-        ::std::mem::size_of::<mp3dec_frame_info_t>(),
+        ::core::mem::size_of::<mp3dec_frame_info_t>(),
         20usize,
         concat!("Size of: ", stringify!(mp3dec_frame_info_t))
     );
     assert_eq!(
-        ::std::mem::align_of::<mp3dec_frame_info_t>(),
+        ::core::mem::align_of::<mp3dec_frame_info_t>(),
         4usize,
         concat!("Alignment of ", stringify!(mp3dec_frame_info_t))
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<mp3dec_frame_info_t>())).frame_bytes as *const _ as usize },
+        unsafe {
+            &(*(::core::ptr::null::<mp3dec_frame_info_t>())).frame_bytes as *const _ as usize
+        },
         0usize,
         concat!(
             "Offset of field: ",
@@ -83,7 +85,7 @@ fn bindgen_test_layout_mp3dec_frame_info_t() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<mp3dec_frame_info_t>())).channels as *const _ as usize },
+        unsafe { &(*(::core::ptr::null::<mp3dec_frame_info_t>())).channels as *const _ as usize },
         4usize,
         concat!(
             "Offset of field: ",
@@ -93,7 +95,7 @@ fn bindgen_test_layout_mp3dec_frame_info_t() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<mp3dec_frame_info_t>())).hz as *const _ as usize },
+        unsafe { &(*(::core::ptr::null::<mp3dec_frame_info_t>())).hz as *const _ as usize },
         8usize,
         concat!(
             "Offset of field: ",
@@ -103,7 +105,7 @@ fn bindgen_test_layout_mp3dec_frame_info_t() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<mp3dec_frame_info_t>())).layer as *const _ as usize },
+        unsafe { &(*(::core::ptr::null::<mp3dec_frame_info_t>())).layer as *const _ as usize },
         12usize,
         concat!(
             "Offset of field: ",
@@ -114,7 +116,7 @@ fn bindgen_test_layout_mp3dec_frame_info_t() {
     );
     assert_eq!(
         unsafe {
-            &(*(::std::ptr::null::<mp3dec_frame_info_t>())).bitrate_kbps as *const _ as usize
+            &(*(::core::ptr::null::<mp3dec_frame_info_t>())).bitrate_kbps as *const _ as usize
         },
         16usize,
         concat!(
@@ -130,25 +132,25 @@ fn bindgen_test_layout_mp3dec_frame_info_t() {
 pub struct mp3dec_t {
     pub mdct_overlap: [[f32; 288usize]; 2usize],
     pub qmf_state: [f32; 960usize],
-    pub reserv: ::std::os::raw::c_int,
-    pub free_format_bytes: ::std::os::raw::c_int,
-    pub header: [::std::os::raw::c_uchar; 4usize],
-    pub reserv_buf: [::std::os::raw::c_uchar; 511usize],
+    pub reserv: libc::c_int,
+    pub free_format_bytes: libc::c_int,
+    pub header: [libc::c_uchar; 4usize],
+    pub reserv_buf: [libc::c_uchar; 511usize],
 }
 #[test]
 fn bindgen_test_layout_mp3dec_t() {
     assert_eq!(
-        ::std::mem::size_of::<mp3dec_t>(),
+        ::core::mem::size_of::<mp3dec_t>(),
         6668usize,
         concat!("Size of: ", stringify!(mp3dec_t))
     );
     assert_eq!(
-        ::std::mem::align_of::<mp3dec_t>(),
+        ::core::mem::align_of::<mp3dec_t>(),
         4usize,
         concat!("Alignment of ", stringify!(mp3dec_t))
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<mp3dec_t>())).mdct_overlap as *const _ as usize },
+        unsafe { &(*(::core::ptr::null::<mp3dec_t>())).mdct_overlap as *const _ as usize },
         0usize,
         concat!(
             "Offset of field: ",
@@ -158,7 +160,7 @@ fn bindgen_test_layout_mp3dec_t() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<mp3dec_t>())).qmf_state as *const _ as usize },
+        unsafe { &(*(::core::ptr::null::<mp3dec_t>())).qmf_state as *const _ as usize },
         2304usize,
         concat!(
             "Offset of field: ",
@@ -168,7 +170,7 @@ fn bindgen_test_layout_mp3dec_t() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<mp3dec_t>())).reserv as *const _ as usize },
+        unsafe { &(*(::core::ptr::null::<mp3dec_t>())).reserv as *const _ as usize },
         6144usize,
         concat!(
             "Offset of field: ",
@@ -178,7 +180,7 @@ fn bindgen_test_layout_mp3dec_t() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<mp3dec_t>())).free_format_bytes as *const _ as usize },
+        unsafe { &(*(::core::ptr::null::<mp3dec_t>())).free_format_bytes as *const _ as usize },
         6148usize,
         concat!(
             "Offset of field: ",
@@ -188,7 +190,7 @@ fn bindgen_test_layout_mp3dec_t() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<mp3dec_t>())).header as *const _ as usize },
+        unsafe { &(*(::core::ptr::null::<mp3dec_t>())).header as *const _ as usize },
         6152usize,
         concat!(
             "Offset of field: ",
@@ -198,7 +200,7 @@ fn bindgen_test_layout_mp3dec_t() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::std::ptr::null::<mp3dec_t>())).reserv_buf as *const _ as usize },
+        unsafe { &(*(::core::ptr::null::<mp3dec_t>())).reserv_buf as *const _ as usize },
         6156usize,
         concat!(
             "Offset of field: ",
@@ -216,8 +218,8 @@ extern "C" {
     pub fn mp3dec_decode_frame(
         dec: *mut mp3dec_t,
         mp3: *const u8,
-        mp3_bytes: ::std::os::raw::c_int,
+        mp3_bytes: libc::c_int,
         pcm: *mut mp3d_sample_t,
         info: *mut mp3dec_frame_info_t,
-    ) -> ::std::os::raw::c_int;
+    ) -> libc::c_int;
 }
