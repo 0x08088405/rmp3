@@ -3,9 +3,8 @@
 use core::{mem, ptr};
 use libc::c_int;
 
-/// Raw minimp3 bindings if you need them for whatever reason.
-///
-/// Although if there's a desired feature make an issue/PR.
+/// Raw minimp3 bindings if you need them,
+/// although if there's a desired feature please make an issue/PR.
 pub mod ffi {
     #![allow(clippy::all, non_camel_case_types)]
 
