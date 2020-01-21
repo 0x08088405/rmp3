@@ -1,3 +1,4 @@
+[![Build Status (Travis-CI)](https://travis-ci.com/notviri/rmp3.svg?branch=master)](https://travis-ci.com/notviri/rmp3)
 [![Crates.io](https://img.shields.io/crates/v/rmp3)](https://crates.io/crates/rmp3)
 [![Documentation](https://docs.rs/rmp3/badge.svg)](https://docs.rs/rmp3)
 
