@@ -149,10 +149,15 @@ impl<'a> Decoder<'a> {
     }
 
     unsafe fn ffi_decode_frame(&mut self, pcm: *mut Sample) -> c_int {
+        // The minimp3 API takes `int` for size, however that won't work if
+        // your file exceeds 2GB (2147483647b) in size. Thankfully,
+        // under pretty much no circumstances will each frame be >2GB.
+        // Even if it would be, this makes it not UB and just return err/eof.
+        let frame_len = self.data.len().min(c_int::max_value() as usize);
         ffi::mp3dec_decode_frame(
             &mut self.instance,       // mp3dec instance
             self.data.as_ptr(),       // data pointer
-            self.data.len() as c_int, // pointer length
+            frame_len as c_int,       // pointer length
             pcm,                      // output buffer
             &mut self.ffi_frame,      // frame info
         )
