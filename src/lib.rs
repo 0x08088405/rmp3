@@ -93,8 +93,10 @@ impl<'a> Decoder<'a> {
         unsafe {
             let out_ptr: *mut Sample = self.pcm.as_mut_ptr();
             let samples = self.ffi_decode_frame(out_ptr) as u32;
-            self.data_offset += self.ffi_frame.frame_bytes as usize;
-            self.data_rem_len -= self.ffi_frame.frame_bytes as usize;
+            let frame_bytes = self.ffi_frame.frame_bytes as usize;
+            self.data_ptr = self.data_ptr.offset(frame_bytes as isize);
+            self.data_offset += frame_bytes;
+            self.data_rem_len -= frame_bytes;
             if samples > 0 {
                 Some(Frame {
                     bitrate: self.ffi_frame.bitrate_kbps as u32,
@@ -105,7 +107,7 @@ impl<'a> Decoder<'a> {
                     sample_rate: self.ffi_frame.hz as u32,
                     mpeg_layer: self.ffi_frame.layer as u32,
                     sample_count: samples,
-                    source_len: self.ffi_frame.frame_bytes as usize,
+                    source_len: frame_bytes,
                 })
             } else if self.ffi_frame.frame_bytes != 0 {
                 self.next_frame()
