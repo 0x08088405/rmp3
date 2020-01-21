@@ -20,12 +20,15 @@ pub type Sample = i16;
 #[cfg(feature = "float")]
 pub type Sample = f32;
 
+/// Maximum amount of samples that can be yielded per frame.
+pub const MAX_SAMPLES_PER_FRAME: usize = ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as usize;
+
 /// Streaming iterator yielding frame data & references to decoded PCM samples.
 pub struct Decoder<'a> {
     data: &'a [u8],
     ffi_frame: ffi::mp3dec_frame_info_t,
     instance: ffi::mp3dec_t,
-    pcm: [Sample; ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as usize],
+    pcm: [Sample; MAX_SAMPLES_PER_FRAME],
 
     // cache for peek/skip_frame, should be set to None upon any seeking otherwise it'll get stale
     last_frame_len: Option<usize>,
@@ -69,7 +72,7 @@ impl<'a> Decoder<'a> {
                 ffi::mp3dec_init(&mut decoder);
                 decoder
             },
-            pcm: [Default::default(); ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as usize],
+            pcm: [Default::default(); MAX_SAMPLES_PER_FRAME],
             last_frame_len: None,
         }
     }
@@ -155,11 +158,11 @@ impl<'a> Decoder<'a> {
         // Even if it would be, this makes it not UB and just return err/eof.
         let frame_len = self.data.len().min(c_int::max_value() as usize);
         ffi::mp3dec_decode_frame(
-            &mut self.instance,       // mp3dec instance
-            self.data.as_ptr(),       // data pointer
-            frame_len as c_int,       // pointer length
-            pcm,                      // output buffer
-            &mut self.ffi_frame,      // frame info
+            &mut self.instance,  // mp3dec instance
+            self.data.as_ptr(),  // data pointer
+            frame_len as c_int,  // pointer length
+            pcm,                 // output buffer
+            &mut self.ffi_frame, // frame info
         )
     }
 }
