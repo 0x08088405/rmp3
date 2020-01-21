@@ -153,6 +153,11 @@ impl<'a> Decoder<'a> {
         }
     }
 
+    /// Gets the position in the MP3 data.
+    pub fn position(&self) -> usize {
+        self.data_offset
+    }
+
     fn frame_bytes(&mut self) -> Option<usize> {
         let len = self
             .cached_len
