@@ -8,6 +8,7 @@ license = "CC0-1.0"
 homepage = "https://github.com/notviri/rmp3"
 repository = "https://github.com/notviri/rmp3"
 documentation = "https://docs.rs/rmp3"
+readme = "README.md"
 
 # for crates.io
 include = [
