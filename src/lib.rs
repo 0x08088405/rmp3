@@ -30,7 +30,7 @@ pub struct Decoder<'a> {
     pcm: [Sample; MAX_SAMPLES_PER_FRAME],
 
     // cache for peek/skip_frame, should be set to None upon any seeking otherwise it'll get stale
-    last_frame_len: Option<usize>,
+    cached_len: Option<usize>,
 
     data_offset: usize,
     data_ptr: *const u8,
@@ -77,7 +77,7 @@ impl<'a> Decoder<'a> {
                 decoder
             },
             pcm: [Default::default(); MAX_SAMPLES_PER_FRAME],
-            last_frame_len: None,
+            cached_len: None,
 
             data_offset: 0,
             data_ptr: data.as_ptr(),
@@ -89,7 +89,7 @@ impl<'a> Decoder<'a> {
     /// Reads the next frame, if available.
     /// If non-sample data (ex. ID3) is found it's skipped over until samples are found.
     pub fn next_frame(&mut self) -> Option<Frame> {
-        self.last_frame_len = None;
+        self.cached_len = None;
         unsafe {
             let out_ptr: *mut Sample = self.pcm.as_mut_ptr();
             let samples = self.ffi_decode_frame(out_ptr) as u32;
@@ -128,7 +128,7 @@ impl<'a> Decoder<'a> {
     pub fn peek_frame(&mut self) -> Option<Frame> {
         let samples = unsafe { self.ffi_decode_frame(ptr::null_mut()) as u32 };
         if self.ffi_frame.frame_bytes != 0 {
-            self.last_frame_len = Some(self.ffi_frame.frame_bytes as usize);
+            self.cached_len = Some(self.ffi_frame.frame_bytes as usize);
             Some(Frame {
                 bitrate: self.ffi_frame.bitrate_kbps as u32,
                 channels: self.ffi_frame.channels as u32,
@@ -155,9 +155,9 @@ impl<'a> Decoder<'a> {
 
     fn frame_bytes(&mut self) -> Option<usize> {
         let len = self
-            .last_frame_len
+            .cached_len
             .or_else(|| self.peek_frame().map(|f| f.source_len));
-        self.last_frame_len = None;
+        self.cached_len = None;
         len
     }
 
