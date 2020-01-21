@@ -1,6 +1,6 @@
 [package]
 name = "rmp3"
-version = "0.1.0"
+version = "0.2.0"
 description = "fast & safe no_std minimp3 wrapper"
 authors = ["viri <git@stuff.moe>"]
 edition = "2018"
