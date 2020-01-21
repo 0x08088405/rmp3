@@ -1,3 +1,6 @@
+[![Crates.io](https://img.shields.io/crates/v/rmp3)](https://crates.io/crates/rmp3)
+[![Documentation](https://docs.rs/rmp3/badge.svg)](https://docs.rs/rmp3)
+
 # rmp3
 Idiomatic `no_std` bindings to [minimp3](https://github.com/lieff/minimp3) which don't allocate.
 
