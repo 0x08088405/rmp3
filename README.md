@@ -15,12 +15,12 @@ while let Some(rmp3::Frame { channels, sample_rate, samples, .. }) = decoder.nex
 // Sometimes you just want to iterate the frames without decoding them, as it's much faster.
 // Example to calculate song length - 800µs vs. 350ms when decoding a 4:52 track (on a low-end CPU)
 let mut length = 0.0f32; // length in seconds
-while let Some(rmp3::Frame { sample_rate, sample_count, source_len, .. }) = decoder.peek_frame() {
+while let Some(rmp3::Frame { sample_rate, sample_count, .. }) = decoder.peek_frame() {
     // Not all frames necessarily contain samples (next_frame would skip over these).
     if sample_count != 0 {
         length += sample_count as f32 / sample_rate as f32;
     }
-    decoder.skip_frame(source_len);
+    decoder.skip_frame();
 }
 ```
 
