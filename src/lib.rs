@@ -1,6 +1,6 @@
 #![no_std]
 
-use core::{mem, ptr};
+use core::{marker::PhantomData, mem, ptr};
 use libc::c_int;
 
 /// Raw minimp3 bindings if you need them,
@@ -25,13 +25,17 @@ pub const MAX_SAMPLES_PER_FRAME: usize = ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as u
 
 /// Streaming iterator yielding frame data & references to decoded PCM samples.
 pub struct Decoder<'a> {
-    data: &'a [u8],
     ffi_frame: ffi::mp3dec_frame_info_t,
     instance: ffi::mp3dec_t,
     pcm: [Sample; MAX_SAMPLES_PER_FRAME],
 
     // cache for peek/skip_frame, should be set to None upon any seeking otherwise it'll get stale
     last_frame_len: Option<usize>,
+
+    data_offset: usize,
+    data_ptr: *const u8,
+    data_rem_len: usize,
+    _phantom: PhantomData<&'a [u8]>,
 }
 
 /// Info about the current frame yielded by a [Decoder](struct.Decoder.html).
@@ -64,8 +68,8 @@ pub struct Frame<'a> {
 impl<'a> Decoder<'a> {
     /// Creates a decoder over `data` (mp3 bytes).
     pub fn new(data: &'a (impl AsRef<[u8]> + ?Sized)) -> Self {
+        let data = data.as_ref();
         Self {
-            data: data.as_ref(),
             ffi_frame: unsafe { mem::zeroed() },
             instance: unsafe {
                 let mut decoder: ffi::mp3dec_t = mem::zeroed();
@@ -74,6 +78,11 @@ impl<'a> Decoder<'a> {
             },
             pcm: [Default::default(); MAX_SAMPLES_PER_FRAME],
             last_frame_len: None,
+
+            data_offset: 0,
+            data_ptr: data.as_ptr(),
+            data_rem_len: data.len(),
+            _phantom: PhantomData,
         }
     }
 
@@ -84,9 +93,8 @@ impl<'a> Decoder<'a> {
         unsafe {
             let out_ptr: *mut Sample = self.pcm.as_mut_ptr();
             let samples = self.ffi_decode_frame(out_ptr) as u32;
-            self.data = self
-                .data
-                .get_unchecked(self.ffi_frame.frame_bytes as usize..);
+            self.data_offset += self.ffi_frame.frame_bytes as usize;
+            self.data_rem_len -= self.ffi_frame.frame_bytes as usize;
             if samples > 0 {
                 Some(Frame {
                     bitrate: self.ffi_frame.bitrate_kbps as u32,
@@ -139,7 +147,9 @@ impl<'a> Decoder<'a> {
     /// The frame won't be decoded, and if peek_frame was used previously it won't even be read again.
     pub fn skip_frame(&mut self) {
         if let Some(len) = self.frame_bytes() {
-            unsafe { self.data = self.data.get_unchecked(len..) }
+            self.data_offset += len;
+            self.data_rem_len -= len;
+            self.data_ptr = unsafe { self.data_ptr.offset(len as isize) };
         }
     }
 
@@ -156,10 +166,10 @@ impl<'a> Decoder<'a> {
         // your file exceeds 2GB (2147483647b) in size. Thankfully,
         // under pretty much no circumstances will each frame be >2GB.
         // Even if it would be, this makes it not UB and just return err/eof.
-        let frame_len = self.data.len().min(c_int::max_value() as usize);
+        let frame_len = self.data_rem_len.min(c_int::max_value() as usize);
         ffi::mp3dec_decode_frame(
             &mut self.instance,  // mp3dec instance
-            self.data.as_ptr(),  // data pointer
+            self.data_ptr,       // data pointer
             frame_len as c_int,  // pointer length
             pcm,                 // output buffer
             &mut self.ffi_frame, // frame info
