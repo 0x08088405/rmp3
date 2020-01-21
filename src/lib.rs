@@ -131,7 +131,7 @@ impl<'a> Decoder<'a> {
     /// Should be used in combination with [peek_frame](struct.Decoder.html#method.peek_frame)
     /// so you know how long the frame is.
     pub fn skip_frame(&mut self, frame_length: usize) {
-        self.data = self.data.get(..frame_length).unwrap_or(&[]);
+        self.data = self.data.get(frame_length..).unwrap_or(&[]);
     }
 
     unsafe fn ffi_decode_frame(&mut self, pcm: *mut Sample) -> c_int {
