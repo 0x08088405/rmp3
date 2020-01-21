@@ -1,8 +1,13 @@
 [package]
 name = "rmp3"
 version = "0.1.0"
+description = "fast & safe no_std minimp3 wrapper"
 authors = ["viri <git@stuff.moe>"]
 edition = "2018"
+license = "CC0"
+homepage = "https://github.com/notviri/rmp3"
+repository = "https://github.com/notviri/rmp3"
+documentation = "https://docs.rs/rmp3"
 
 [build-dependencies]
 cc = "1.0"
