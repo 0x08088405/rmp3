@@ -1,19 +1,19 @@
 # rmp3
-Idiomatic bindings to `minimp3` that don't allocate.
+Idiomatic `no_std` bindings to [minimp3](https://github.com/lieff/minimp3) which don't allocate.
 
 ## Usage
-A simple streaming iterator is provided for decoding samples:
+A simple streaming iterator is provided for decoding samples.
 ```rust
-let mut decoder = rmp3::Decoder::new(&your_data_here);
+let mut decoder = rmp3::Decoder::new(&your_data_here); // anything that can AsRef<[u8]>
 ```
-It returns a reference to the internal static buffer instead of allocating.
+It returns a reference to the internal fixed buffer along with the frame info:
 ```rust
 while let Some(rmp3::Frame { channels, sample_rate, samples, .. }) = decoder.next_frame() {
     // process frame data
 }
 ```
 
-Sometimes you just want to look at the frames, but not decode them. This is easy too:
+Sometimes you just want to iterate the frames without decoding them (as it's much faster):
 ```rust
 // calculate song length - 800µs vs. 350ms when decoding a 4:52 track (on a low end CPU)
 let mut length = 0.0f32;
