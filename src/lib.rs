@@ -1,6 +1,6 @@
 #![no_std]
 
-use core::{marker::PhantomData, mem, ptr};
+use core::{marker::PhantomData, mem, ptr, slice};
 use libc::c_int;
 
 /// Raw minimp3 bindings if you need them,
@@ -61,8 +61,8 @@ pub struct Frame<'a> {
     /// Sample rate of this frame in Hz.
     pub sample_rate: u32,
 
-    /// Size of the source frame in bytes.
-    pub source_len: usize,
+    /// Source bytes of the frame, including the header.
+    pub source: &'a [u8],
 }
 
 impl<'a> Decoder<'a> {
@@ -107,7 +107,10 @@ impl<'a> Decoder<'a> {
                     sample_rate: self.ffi_frame.hz as u32,
                     mpeg_layer: self.ffi_frame.layer as u32,
                     sample_count: samples,
-                    source_len: frame_bytes,
+                    source: slice::from_raw_parts(
+                        self.data_ptr.offset(-(frame_bytes as isize)),
+                        frame_bytes,
+                    ),
                 })
             } else if self.ffi_frame.frame_bytes != 0 {
                 self.next_frame()
@@ -126,7 +129,7 @@ impl<'a> Decoder<'a> {
     /// which when zero will indicate that the current frame
     /// does not contain any samples to be decoded.
     /// Unlike [next_frame](struct.Frame.html#method.next_frame), it will **not** be skipped over
-    /// automatically, but you can still of course call `skip_frame(frame.source_len)` on it.
+    /// automatically, but you can still of course call `skip_frame()` on it.
     pub fn peek_frame(&mut self) -> Option<Frame> {
         let samples = unsafe { self.ffi_decode_frame(ptr::null_mut()) as u32 };
         if self.ffi_frame.frame_bytes != 0 {
@@ -138,7 +141,9 @@ impl<'a> Decoder<'a> {
                 samples: &[],
                 sample_rate: self.ffi_frame.hz as u32,
                 sample_count: samples,
-                source_len: self.ffi_frame.frame_bytes as usize,
+                source: unsafe {
+                    slice::from_raw_parts(self.data_ptr, self.ffi_frame.frame_bytes as usize)
+                },
             })
         } else {
             None
@@ -163,7 +168,7 @@ impl<'a> Decoder<'a> {
     fn frame_bytes(&mut self) -> Option<usize> {
         let len = self
             .cached_len
-            .or_else(|| self.peek_frame().map(|f| f.source_len));
+            .or_else(|| self.peek_frame().map(|f| f.source.len()));
         self.cached_len = None;
         len
     }
