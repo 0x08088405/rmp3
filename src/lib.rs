@@ -5,11 +5,9 @@ use libc::c_int;
 
 /// Raw minimp3 bindings if you need them,
 /// although if there's a desired feature please make an issue/PR.
-pub mod ffi {
-    #![allow(clippy::all, non_camel_case_types)]
-
-    include!("bindings.rs");
-}
+#[allow(clippy::all, non_camel_case_types)]
+#[path = "bindings.rs"]
+pub mod ffi;
 
 /// Used to represent one PCM sample in output data (conditional).
 ///
