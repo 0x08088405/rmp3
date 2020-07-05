@@ -27,10 +27,7 @@ pub enum Chunk<'src, 'pcm> {
 }
 
 /// Primitive decoder for parsing or decoding MPEG Audio data.
-pub struct Decoder {
-    decoder: MaybeUninit<ffi::mp3dec_t>,
-    frame_recv: MaybeUninit<ffi::mp3dec_frame_info_t>,
-}
+pub struct Decoder(MaybeUninit<ffi::mp3dec_t>);
 
 /// Accompanying buffer type for a [Decoder](struct.Decoder.html).
 ///
@@ -69,10 +66,7 @@ impl Decoder {
     pub fn new() -> Self {
         let mut decoder = MaybeUninit::<ffi::mp3dec_t>::uninit();
         unsafe { &mut *decoder.as_mut_ptr() }.header[0] = 0;
-        Self {
-            decoder,
-            frame_recv: MaybeUninit::uninit(),
-        }
+        Self(decoder)
     }
 
     #[inline(always)]
@@ -98,6 +92,7 @@ impl Decoder {
         buf: Option<&'pcm mut DecoderBuffer>,
     ) -> Result<Chunk<'src, 'pcm>, InsufficientData> {
         unsafe {
+            let mut frame_recv = MaybeUninit::uninit();
             // The minimp3 API takes `int` for size, however that won't work if
             // your file exceeds 2GB (2147483647b) in size. Thankfully,
             // under pretty much no circumstances will each frame be >2GB.
@@ -107,13 +102,13 @@ impl Decoder {
                 .map(|r| r as *mut DecoderBuffer)
                 .unwrap_or(ptr::null_mut());
             let samples = ffi::mp3dec_decode_frame(
-                self.decoder.as_mut_ptr(),    // mp3dec instance
+                self.0.as_mut_ptr(),    // mp3dec instance
                 data.as_ptr(),                // data pointer
                 data_len,                     // pointer length
                 pcm_ptr as *mut Sample,       // output buffer
-                self.frame_recv.as_mut_ptr(), // frame info
+                frame_recv.as_mut_ptr(), // frame info
             );
-            let frame_recv = &*self.frame_recv.as_ptr();
+            let frame_recv = &*frame_recv.as_ptr();
             if samples != 0 {
                 // we got samples!
                 Ok(Chunk::Samples(Frame {
