@@ -58,6 +58,9 @@ pub struct Frame<'src, 'pcm> {
     /// contained in the output [DecoderBuffer](struct.DecoderBuffer.html).
     /// Empty if using [peek](struct.Decoder.html#method.peek).
     pub samples: &'pcm [Sample],
+    /// Total sample count if using [peek](struct.Decoder.html#method.peek),
+    /// since [samples](struct.Frame.html#structfield.samples) would be empty.
+    pub sample_count: usize,
 }
 
 pub struct InsufficientData;
@@ -127,6 +130,7 @@ impl Decoder {
                     } else {
                         &[]
                     },
+                    sample_count: samples as usize,
                 }))
             } else if frame_recv.frame_bytes != 0 {
                 Ok(Chunk::UnknownData(
