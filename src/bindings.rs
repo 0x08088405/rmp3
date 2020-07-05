@@ -7,6 +7,7 @@ pub const _USE_DECLSPECS_FOR_SAL: u32 = 0;
 pub const _USE_ATTRIBUTES_FOR_SAL: u32 = 0;
 pub const _CRT_PACKING: u32 = 8;
 pub const _HAS_EXCEPTIONS: u32 = 1;
+pub const _STL_LANG: u32 = 0;
 pub const _HAS_CXX17: u32 = 0;
 pub const _HAS_CXX20: u32 = 0;
 pub const _HAS_NODISCARD: u32 = 0;
@@ -19,6 +20,7 @@ pub type va_list = *mut libc::c_char;
 extern "C" {
     pub fn __va_start(arg1: *mut *mut libc::c_char, ...);
 }
+pub type size_t = libc::c_ulonglong;
 pub type __vcrt_bool = bool;
 pub type wchar_t = libc::c_ushort;
 extern "C" {
@@ -55,6 +57,7 @@ pub type uintmax_t = libc::c_ulonglong;
 #[derive(Debug, Copy, Clone)]
 pub struct mp3dec_frame_info_t {
     pub frame_bytes: libc::c_int,
+    pub frame_offset: libc::c_int,
     pub channels: libc::c_int,
     pub hz: libc::c_int,
     pub layer: libc::c_int,
@@ -64,7 +67,7 @@ pub struct mp3dec_frame_info_t {
 fn bindgen_test_layout_mp3dec_frame_info_t() {
     assert_eq!(
         ::core::mem::size_of::<mp3dec_frame_info_t>(),
-        20usize,
+        24usize,
         concat!("Size of: ", stringify!(mp3dec_frame_info_t))
     );
     assert_eq!(
@@ -85,8 +88,20 @@ fn bindgen_test_layout_mp3dec_frame_info_t() {
         )
     );
     assert_eq!(
-        unsafe { &(*(::core::ptr::null::<mp3dec_frame_info_t>())).channels as *const _ as usize },
+        unsafe {
+            &(*(::core::ptr::null::<mp3dec_frame_info_t>())).frame_offset as *const _ as usize
+        },
         4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(mp3dec_frame_info_t),
+            "::",
+            stringify!(frame_offset)
+        )
+    );
+    assert_eq!(
+        unsafe { &(*(::core::ptr::null::<mp3dec_frame_info_t>())).channels as *const _ as usize },
+        8usize,
         concat!(
             "Offset of field: ",
             stringify!(mp3dec_frame_info_t),
@@ -96,7 +111,7 @@ fn bindgen_test_layout_mp3dec_frame_info_t() {
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<mp3dec_frame_info_t>())).hz as *const _ as usize },
-        8usize,
+        12usize,
         concat!(
             "Offset of field: ",
             stringify!(mp3dec_frame_info_t),
@@ -106,7 +121,7 @@ fn bindgen_test_layout_mp3dec_frame_info_t() {
     );
     assert_eq!(
         unsafe { &(*(::core::ptr::null::<mp3dec_frame_info_t>())).layer as *const _ as usize },
-        12usize,
+        16usize,
         concat!(
             "Offset of field: ",
             stringify!(mp3dec_frame_info_t),
@@ -118,7 +133,7 @@ fn bindgen_test_layout_mp3dec_frame_info_t() {
         unsafe {
             &(*(::core::ptr::null::<mp3dec_frame_info_t>())).bitrate_kbps as *const _ as usize
         },
-        16usize,
+        20usize,
         concat!(
             "Offset of field: ",
             stringify!(mp3dec_frame_info_t),
