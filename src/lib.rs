@@ -141,6 +141,12 @@ impl Decoder {
     }
 }
 
+impl DecoderBuffer {
+    pub fn new() -> Self {
+        Self(unsafe { MaybeUninit::uninit().assume_init() })
+    }
+}
+
 #[inline(always)]
 unsafe fn frame_slice<'src, 'frame>(
     data: &'src [u8],
