@@ -21,12 +21,18 @@ pub type Sample = f32;
 /// Maximum amount of samples that can be yielded per frame.
 pub const MAX_SAMPLES_PER_FRAME: usize = ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as usize;
 
+/// Audio or miscellaneous data in a frame.
 pub enum Frame<'src, 'pcm> {
     /// PCM Sample Data
     Audio(Samples<'src, 'pcm>),
 
-    /// Unknown Data - (bytes_consumed, source)
-    Unknown(usize, &'src [u8]),
+    /// Unknown Data
+    Unknown {
+        /// Total bytes consumed from the start of the input data.
+        bytes_consumed: usize,
+        /// Source bytes of the frame, including the header, excluding skipped (potential) garbage data.
+        source: &'src [u8],
+    },
 }
 
 /// Primitive decoder for parsing or decoding MPEG Audio data.
@@ -63,12 +69,15 @@ pub struct Samples<'src, 'pcm> {
     pub sample_count: usize,
 }
 
+/// Unit error type representing insufficient data in the input slice.
 pub struct InsufficientData;
 
 impl Decoder {
     pub fn new() -> Self {
         let mut decoder = MaybeUninit::<ffi::mp3dec_t>::uninit();
-        unsafe { &mut *decoder.as_mut_ptr() }.header[0] = 0;
+        unsafe {
+            ffi::mp3dec_init(decoder.as_mut_ptr());
+        }
         Self(decoder)
     }
 
@@ -136,10 +145,10 @@ impl Decoder {
                 }))
             } else if frame_recv.frame_bytes != 0 {
                 // we got... something!
-                Ok(Frame::Unknown(
-                    frame_recv.frame_bytes as usize,
-                    frame_slice(data, frame_recv),
-                ))
+                Ok(Frame::Unknown {
+                    bytes_consumed: frame_recv.frame_bytes as usize,
+                    source: frame_slice(data, frame_recv),
+                })
             } else {
                 // nope.
                 return Err(InsufficientData);
