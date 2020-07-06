@@ -128,6 +128,7 @@ impl Decoder {
                     sample_count: samples as usize,
                 }))
             } else if frame_recv.frame_bytes != 0 {
+                // we got... something!
                 Ok(Chunk::UnknownData(
                     frame_recv.frame_bytes as usize,
                     frame_slice(data, frame_recv),
