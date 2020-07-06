@@ -21,12 +21,12 @@ pub type Sample = f32;
 /// Maximum amount of samples that can be yielded per frame.
 pub const MAX_SAMPLES_PER_FRAME: usize = ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as usize;
 
-pub enum Chunk<'src, 'pcm> {
+pub enum Frame<'src, 'pcm> {
     /// PCM Sample Data
-    Samples(Frame<'src, 'pcm>),
+    Audio(Samples<'src, 'pcm>),
 
     /// Unknown Data - (bytes_consumed, source)
-    UnknownData(usize, &'src [u8]),
+    Unknown(usize, &'src [u8]),
 }
 
 /// Primitive decoder for parsing or decoding MPEG Audio data.
@@ -40,7 +40,7 @@ pub struct Decoder(MaybeUninit<ffi::mp3dec_t>);
 pub struct DecoderBuffer([Sample; MAX_SAMPLES_PER_FRAME]);
 
 /// Info about the current frame yielded by a [Decoder](struct.Decoder.html).
-pub struct Frame<'src, 'pcm> {
+pub struct Samples<'src, 'pcm> {
     /// Bitrate of the source frame in kb/s.
     pub bitrate: u32,
     /// Number of channels in this frame.
@@ -79,7 +79,7 @@ impl Decoder {
     pub fn peek<'a, 'src>(
         &'a mut self,
         data: &'src [u8],
-    ) -> Result<Chunk<'src, 'static>, InsufficientData> {
+    ) -> Result<Frame<'src, 'static>, InsufficientData> {
         self.dec(data, None)
     }
 
@@ -89,7 +89,7 @@ impl Decoder {
         &'a mut self,
         data: &'src [u8],
         buf: &'pcm mut DecoderBuffer,
-    ) -> Result<Chunk<'src, 'pcm>, InsufficientData> {
+    ) -> Result<Frame<'src, 'pcm>, InsufficientData> {
         self.dec(data, Some(buf))
     }
 
@@ -97,7 +97,7 @@ impl Decoder {
         &'a mut self,
         data: &'src [u8],
         buf: Option<&'pcm mut DecoderBuffer>,
-    ) -> Result<Chunk<'src, 'pcm>, InsufficientData> {
+    ) -> Result<Frame<'src, 'pcm>, InsufficientData> {
         unsafe {
             let mut frame_recv = MaybeUninit::uninit();
             // The minimp3 API takes `int` for size, however that won't work if
@@ -118,7 +118,7 @@ impl Decoder {
             let frame_recv = &*frame_recv.as_ptr();
             if samples != 0 {
                 // we got samples!
-                Ok(Chunk::Samples(Frame {
+                Ok(Frame::Audio(Samples {
                     bitrate: frame_recv.bitrate_kbps as u32,
                     channels: frame_recv.channels as u32,
                     mpeg_layer: frame_recv.layer as u32,
@@ -136,7 +136,7 @@ impl Decoder {
                 }))
             } else if frame_recv.frame_bytes != 0 {
                 // we got... something!
-                Ok(Chunk::UnknownData(
+                Ok(Frame::Unknown(
                     frame_recv.frame_bytes as usize,
                     frame_slice(data, frame_recv),
                 ))
