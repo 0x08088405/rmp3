@@ -22,7 +22,10 @@ pub type Sample = f32;
 pub const MAX_SAMPLES_PER_FRAME: usize = ffi::MINIMP3_MAX_SAMPLES_PER_FRAME as usize;
 
 pub enum Chunk<'src, 'pcm> {
+    /// PCM Sample Data
     Samples(Frame<'src, 'pcm>),
+
+    /// Unknown Data - (bytes_consumed, source)
     UnknownData(usize, &'src [u8]),
 }
 
@@ -48,7 +51,7 @@ pub struct Frame<'src, 'pcm> {
     pub sample_rate: u32,
 
     /// Total bytes consumed from the start of the input data.
-    pub bytes_read: usize,
+    pub bytes_consumed: usize,
     /// Source bytes of the frame, including the header, excluding skipped (potential) garbage data.
     pub source: &'src [u8],
     /// Reference to the samples in this frame,
@@ -121,7 +124,7 @@ impl Decoder {
                     mpeg_layer: frame_recv.layer as u32,
                     sample_rate: frame_recv.hz as u32,
 
-                    bytes_read: frame_recv.frame_bytes as usize,
+                    bytes_consumed: frame_recv.frame_bytes as usize,
                     source: frame_slice(data, frame_recv),
                     samples: if !pcm_ptr.is_null() {
                         let pcm_points = samples as usize * frame_recv.channels as usize;
