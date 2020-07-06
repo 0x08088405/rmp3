@@ -69,6 +69,9 @@ impl Decoder {
         Self(decoder)
     }
 
+    /// Reads a frame without actually decoding it.
+    /// This means that the [samples](struct.Frame.html#structfield.samples) field will be empty.
+    /// You can use [sample_count](struct.Frame.html#structfield.sample_count) instead for that info.
     #[inline(always)]
     pub fn peek<'a, 'src>(
         &'a mut self,
@@ -77,6 +80,7 @@ impl Decoder {
         self.dec(data, None)
     }
 
+    /// Reads the next frame, skipping over garbage, returning data if successful.
     #[inline(always)]
     pub fn next<'a, 'src, 'pcm>(
         &'a mut self,
