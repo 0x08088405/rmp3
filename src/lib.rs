@@ -38,6 +38,17 @@ pub enum Frame<'src, 'pcm> {
 /// Primitive decoder for parsing or decoding MPEG Audio data.
 pub struct Decoder(MaybeUninit<ffi::mp3dec_t>);
 
+/// High-level streaming iterator with a reference over the source data to decode.
+/// Potentially faster than [Decoder](struct.Decoder.html) if planning to seek/decode entire data.
+pub struct DecoderStream<'src> {
+    decoder: MaybeUninit<ffi::mp3dec_t>,
+    decoder_buf: DecoderBuffer,
+    frame_recv: MaybeUninit<ffi::mp3dec_frame_info_t>,
+    peek_cache_len: Option<usize>,
+    source: &'src [u8],
+    offset: usize,
+}
+
 /// Accompanying buffer type for a [Decoder](struct.Decoder.html).
 ///
 /// The inner data may be stale, and thus the only way to access it is
@@ -109,50 +120,25 @@ impl Decoder {
     ) -> Result<Frame<'src, 'pcm>, InsufficientData> {
         unsafe {
             let mut frame_recv = MaybeUninit::uninit();
-            // The minimp3 API takes `int` for size, however that won't work if
-            // your file exceeds 2GB (2147483647b) in size. Thankfully,
-            // under pretty much no circumstances will each frame be >2GB.
-            // Even if it would be, this makes it not UB and just return err/eof.
-            let data_len = data.len().min(c_int::max_value() as usize) as c_int;
+            let data_len = data_len_safe(data.len());
             let pcm_ptr = buf
                 .map(|r| r as *mut DecoderBuffer)
                 .unwrap_or(ptr::null_mut());
             let samples = ffi::mp3dec_decode_frame(
-                self.0.as_mut_ptr(),    // mp3dec instance
-                data.as_ptr(),                // data pointer
-                data_len,                     // pointer length
-                pcm_ptr as *mut Sample,       // output buffer
-                frame_recv.as_mut_ptr(), // frame info
+                self.0.as_mut_ptr(),
+                data.as_ptr(),
+                data_len,
+                pcm_ptr as *mut Sample,
+                frame_recv.as_mut_ptr(),
             );
             let frame_recv = &*frame_recv.as_ptr();
-            if samples != 0 {
-                // we got samples!
-                Ok(Frame::Audio(Samples {
-                    bitrate: frame_recv.bitrate_kbps as u32,
-                    channels: frame_recv.channels as u32,
-                    mpeg_layer: frame_recv.layer as u32,
-                    sample_rate: frame_recv.hz as u32,
-
-                    bytes_consumed: frame_recv.frame_bytes as usize,
-                    source: frame_slice(data, frame_recv),
-                    samples: if !pcm_ptr.is_null() {
-                        let pcm_points = samples as usize * frame_recv.channels as usize;
-                        (&*pcm_ptr).0.get_unchecked(..pcm_points)
-                    } else {
-                        &[]
-                    },
-                    sample_count: samples as usize,
-                }))
-            } else if frame_recv.frame_bytes != 0 {
-                // we got... something!
-                Ok(Frame::Unknown {
-                    bytes_consumed: frame_recv.frame_bytes as usize,
-                    source: frame_slice(data, frame_recv),
-                })
-            } else {
-                // nope.
-                return Err(InsufficientData);
-            }
+            translate_response(frame_recv, samples, data, |pcm_points| {
+                if !pcm_ptr.is_null() {
+                    (&*pcm_ptr).0.get_unchecked(..pcm_points)
+                } else {
+                    &[]
+                }
+            })
         }
     }
 }
@@ -163,8 +149,137 @@ impl DecoderBuffer {
     }
 }
 
+impl<'src> DecoderStream<'src> {
+    /// Constructs a new [DecoderStream](struct.DecoderStream.html)
+    pub fn new(source: &'src [u8]) -> Self {
+        Self {
+            decoder: unsafe {
+                let mut decoder = MaybeUninit::<ffi::mp3dec_t>::uninit();
+                ffi::mp3dec_init(decoder.as_mut_ptr());
+                decoder
+            },
+            decoder_buf: DecoderBuffer::new(),
+            frame_recv: MaybeUninit::uninit(),
+            peek_cache_len: None,
+            source,
+            offset: 0,
+        }
+    }
+
+    pub fn peek(&mut self) -> Result<Frame<'src, 'static>, InsufficientData> {
+        self.peek_cache_len = None;
+        unsafe {
+            let samples = self.dec(ptr::null_mut());
+            let frame_recv = &*self.frame_recv.as_ptr();
+            let response = translate_response(frame_recv, samples, &self.source, |_| &[]);
+            match &response {
+                Ok(Frame::Audio(samples)) => self.peek_cache_len = Some(samples.bytes_consumed),
+                Ok(Frame::Unknown { bytes_consumed, .. }) => {
+                    self.peek_cache_len = Some(*bytes_consumed)
+                }
+                Err(_) => self.peek_cache_len = None,
+            }
+            response
+        }
+    }
+
+    pub fn skip(&mut self) -> Result<(), InsufficientData> {
+        unsafe {
+            let offset = match self.peek_cache_len.take() {
+                Some(offset) => offset,
+                None => match self.peek()? {
+                    Frame::Audio(Samples { bytes_consumed, .. })
+                    | Frame::Unknown { bytes_consumed, .. } => bytes_consumed,
+                },
+            };
+            self.offset_trusted(offset);
+        }
+        Ok(())
+    }
+
+    pub fn next<'pcm>(&'pcm mut self) -> Result<Frame<'src, 'pcm>, InsufficientData> {
+        self.peek_cache_len = None;
+        unsafe {
+            let pcm_ptr = &mut self.decoder_buf as *mut _ as *mut Sample;
+            let samples = self.dec(pcm_ptr);
+            let frame_recv = &*self.frame_recv.as_ptr();
+            let response = translate_response(frame_recv, samples, &self.source, |points| {
+                (&*(pcm_ptr as *const DecoderBuffer))
+                    .0
+                    .get_unchecked(..points)
+            });
+
+            if response.is_ok() {
+                self.offset_trusted(frame_recv.frame_bytes as usize);
+            }
+
+            response
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn dec(&mut self, pcm_out: *mut Sample) -> c_int {
+        let data_len = data_len_safe(self.source.len());
+        ffi::mp3dec_decode_frame(
+            self.decoder.as_mut_ptr(),
+            self.source.as_ptr(),
+            data_len,
+            pcm_out,
+            self.frame_recv.as_mut_ptr(),
+        )
+    }
+
+    #[inline(always)]
+    unsafe fn offset_trusted(&mut self, offset: usize) {
+        self.source = self.source.get_unchecked(offset..);
+        self.offset += offset;
+    }
+}
+
+// The minimp3 API takes `int` for size, however that won't work if
+// your file exceeds 2GB (2147483647b) in size. Thankfully,
+// under pretty much no circumstances will each frame be >2GB.
+// Even if it would be, this makes it not UB and just return err/eof.
 #[inline(always)]
-unsafe fn frame_slice<'src, 'frame>(
+unsafe fn data_len_safe(len: usize) -> c_int {
+    len.min(c_int::max_value() as usize) as c_int
+}
+
+#[inline(always)]
+unsafe fn translate_response<'src, 'pcm>(
+    frame_recv: &ffi::mp3dec_frame_info_t,
+    samples: c_int,
+    source: &'src [u8],
+    pcm_f: impl Fn(usize) -> &'pcm [Sample],
+) -> Result<Frame<'src, 'pcm>, InsufficientData> {
+    if samples != 0 {
+        // we got samples!
+        Ok(Frame::Audio(Samples {
+            bitrate: frame_recv.bitrate_kbps as u32,
+            channels: frame_recv.channels as u32,
+            mpeg_layer: frame_recv.layer as u32,
+            sample_rate: frame_recv.hz as u32,
+
+            bytes_consumed: frame_recv.frame_bytes as usize,
+            source: source_slice(source, frame_recv),
+            samples: pcm_f(samples as usize * frame_recv.channels as usize),
+            sample_count: samples as usize,
+        }))
+    } else if frame_recv.frame_bytes != 0 {
+        // we got... something!
+        Ok(Frame::Unknown {
+            bytes_consumed: frame_recv.frame_bytes as usize,
+            source: source_slice(source, frame_recv),
+        })
+    } else {
+        // nope.
+        Err(InsufficientData)
+    }
+}
+
+/// Returns the source slice from a received mp3dec_frame_info_t.
+#[inline(always)]
+unsafe fn source_slice<'src, 'frame>(
     data: &'src [u8],
     frame_recv: &'frame ffi::mp3dec_frame_info_t,
 ) -> &'src [u8] {
