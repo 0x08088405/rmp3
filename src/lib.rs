@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use core::{mem::MaybeUninit, ptr};
 use libc::c_int;
@@ -47,6 +47,12 @@ pub struct DecoderStream<'src> {
     peek_cache_len: Option<usize>,
     source: &'src [u8],
     offset: usize,
+}
+
+#[cfg(feature = "std")]
+pub struct DecoderStreamOwned {
+    _data: Box<[u8]>,
+    inner: DecoderStream<'static>,
 }
 
 /// Accompanying buffer type for a [Decoder](struct.Decoder.html).
@@ -233,6 +239,30 @@ impl<'src> DecoderStream<'src> {
     unsafe fn offset_trusted(&mut self, offset: usize) {
         self.source = self.source.get_unchecked(offset..);
         self.offset += offset;
+    }
+}
+
+#[cfg(feature = "std")]
+impl DecoderStreamOwned {
+    pub fn new(source: impl Into<Box<[u8]>>) -> Self {
+        let data = source.into();
+        let slice = unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
+        Self {
+            _data: data,
+            inner: DecoderStream::new(slice),
+        }
+    }
+
+    pub fn peek<'src>(&'src mut self) -> Result<Frame<'src, 'static>, InsufficientData> {
+        self.inner.peek()
+    }
+
+    pub fn next<'dec>(&'dec mut self) -> Result<Frame<'dec, 'dec>, InsufficientData> {
+        self.inner.next()
+    }
+
+    pub fn skip(&mut self) -> Result<(), InsufficientData> {
+        self.inner.skip()
     }
 }
 
