@@ -42,7 +42,7 @@ pub struct Decoder(MaybeUninit<ffi::mp3dec_t>);
 /// Potentially faster than [Decoder](struct.Decoder.html) if planning to seek/decode entire data.
 pub struct DecoderStream<'src> {
     decoder: MaybeUninit<ffi::mp3dec_t>,
-    decoder_buf: DecoderBuffer,
+    decoder_buf: [Sample; MAX_SAMPLES_PER_FRAME],
     frame_recv: MaybeUninit<ffi::mp3dec_frame_info_t>,
     peek_cache_len: Option<usize>,
     source: &'src [u8],
@@ -54,13 +54,6 @@ pub struct DecoderStreamOwned {
     _data: Box<[u8]>,
     inner: DecoderStream<'static>,
 }
-
-/// Accompanying buffer type for a [Decoder](struct.Decoder.html).
-///
-/// The inner data may be stale, and thus the only way to access it is
-/// from the result slice given by [next](struct.Decoder.html#method.next).
-#[repr(transparent)]
-pub struct DecoderBuffer([Sample; MAX_SAMPLES_PER_FRAME]);
 
 /// Info about the current frame yielded by a [Decoder](struct.Decoder.html).
 pub struct Samples<'src, 'pcm> {
@@ -114,7 +107,7 @@ impl Decoder {
     pub fn next<'a, 'src, 'pcm>(
         &'a mut self,
         data: &'src [u8],
-        buf: &'pcm mut DecoderBuffer,
+        buf: &'pcm mut [Sample; MAX_SAMPLES_PER_FRAME],
     ) -> Result<Frame<'src, 'pcm>, InsufficientData> {
         self.dec(data, Some(buf))
     }
@@ -122,13 +115,13 @@ impl Decoder {
     fn dec<'a, 'src, 'pcm>(
         &'a mut self,
         data: &'src [u8],
-        buf: Option<&'pcm mut DecoderBuffer>,
+        buf: Option<&'pcm mut [Sample; MAX_SAMPLES_PER_FRAME]>,
     ) -> Result<Frame<'src, 'pcm>, InsufficientData> {
         unsafe {
             let mut frame_recv = MaybeUninit::uninit();
             let data_len = data_len_safe(data.len());
             let pcm_ptr = buf
-                .map(|r| r as *mut DecoderBuffer)
+                .map(|r| r.as_ptr())
                 .unwrap_or(ptr::null_mut());
             let samples = ffi::mp3dec_decode_frame(
                 self.0.as_mut_ptr(),
@@ -140,18 +133,12 @@ impl Decoder {
             let frame_recv = &*frame_recv.as_ptr();
             translate_response(frame_recv, samples, data, |pcm_points| {
                 if !pcm_ptr.is_null() {
-                    (&*pcm_ptr).0.get_unchecked(..pcm_points)
+                    (&*(pcm_ptr as *const [Sample; MAX_SAMPLES_PER_FRAME])).get_unchecked(..pcm_points)
                 } else {
                     &[]
                 }
             })
         }
-    }
-}
-
-impl DecoderBuffer {
-    pub fn new() -> Self {
-        Self(unsafe { MaybeUninit::uninit().assume_init() })
     }
 }
 
@@ -164,7 +151,7 @@ impl<'src> DecoderStream<'src> {
                 ffi::mp3dec_init(decoder.as_mut_ptr());
                 decoder
             },
-            decoder_buf: DecoderBuffer::new(),
+            decoder_buf: unsafe { MaybeUninit::uninit().assume_init() },
             frame_recv: MaybeUninit::uninit(),
             peek_cache_len: None,
             source,
@@ -210,8 +197,7 @@ impl<'src> DecoderStream<'src> {
             let samples = self.dec(pcm_ptr);
             let frame_recv = &*self.frame_recv.as_ptr();
             let response = translate_response(frame_recv, samples, &self.source, |points| {
-                (&*(pcm_ptr as *const DecoderBuffer))
-                    .0
+                (&*(pcm_ptr as *const [Sample; MAX_SAMPLES_PER_FRAME]))
                     .get_unchecked(..points)
             });
 
