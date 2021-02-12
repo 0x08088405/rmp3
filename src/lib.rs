@@ -3,8 +3,8 @@
 use core::{mem::MaybeUninit, ptr};
 use libc::c_int;
 
-/// Raw minimp3 bindings if you need them,
-/// although if there's a desired feature please make an issue/PR.
+/// Raw minimp3 bindings if needed,
+/// although if there's a desired API feature please make an issue/PR.
 #[allow(clippy::all, non_camel_case_types)]
 #[path = "bindings.rs"]
 pub mod ffi;
@@ -38,8 +38,9 @@ pub enum Frame<'src, 'pcm> {
 /// Primitive decoder for parsing or decoding MPEG Audio data.
 pub struct Decoder(MaybeUninit<ffi::mp3dec_t>);
 
-/// High-level streaming iterator with a reference over the source data to decode.
-/// Potentially faster than [Decoder](struct.Decoder.html) if planning to seek/decode entire data.
+/// High-level streaming iterator for parsing or decoding MPEG Audio data.
+///
+/// Potentially faster than a [`Decoder`] if planning to seek/decode entire data.
 pub struct DecoderStream<'src> {
     decoder: MaybeUninit<ffi::mp3dec_t>,
     decoder_buf: [Sample; MAX_SAMPLES_PER_FRAME],
@@ -55,7 +56,9 @@ pub struct DecoderStreamOwned {
     inner: DecoderStream<'static>,
 }
 
-/// Info about the current frame yielded by a [Decoder](struct.Decoder.html).
+/// PCM frame data yielded by a decoder.
+///
+/// Note that if a `peek`ing function was used, [`source`](Self::source) will be empty.
 pub struct Samples<'src, 'pcm> {
     /// Bitrate of the source frame in kb/s.
     pub bitrate: u32,
@@ -68,14 +71,15 @@ pub struct Samples<'src, 'pcm> {
 
     /// Total bytes consumed from the start of the input data.
     pub bytes_consumed: usize,
-    /// Source bytes of the frame, including the header, excluding skipped (potential) garbage data.
+    /// Source bytes of the frame, including the header,
+    /// excluding skipped (potential) garbage data.
     pub source: &'src [u8],
     /// Reference to the samples in this frame,
-    /// contained in the output [DecoderBuffer](struct.DecoderBuffer.html).
-    /// Empty if using [peek](struct.Decoder.html#method.peek).
+    /// contained in the output buffer.
+    /// Empty if using [`peek`](Decoder::peek).
     pub samples: &'pcm [Sample],
-    /// Total sample count if using [peek](struct.Decoder.html#method.peek),
-    /// since [samples](struct.Frame.html#structfield.samples) would be empty.
+    /// Total sample count if using [`peek`](Decoder::peek),
+    /// since [`samples`](Samples::samples) would be empty.
     pub sample_count: usize,
 }
 
@@ -83,6 +87,7 @@ pub struct Samples<'src, 'pcm> {
 pub struct InsufficientData;
 
 impl Decoder {
+    /// Constructs a new `Decoder` for processing MPEG audio data.
     pub fn new() -> Self {
         let mut decoder = MaybeUninit::<ffi::mp3dec_t>::uninit();
         unsafe {
@@ -92,8 +97,9 @@ impl Decoder {
     }
 
     /// Reads a frame without actually decoding it.
-    /// This means that the [samples](struct.Frame.html#structfield.samples) field will be empty.
-    /// You can use [sample_count](struct.Frame.html#structfield.sample_count) instead for that info.
+    ///
+    /// This means that the samples will always be empty in a frame containing PCM data,
+    /// therefore [`sample_count`](Samples::sample_count) should be used instead to inspect the length.
     #[inline(always)]
     pub fn peek<'a, 'src>(
         &'a mut self,
@@ -102,7 +108,7 @@ impl Decoder {
         self.dec(data, None)
     }
 
-    /// Reads the next frame, skipping over garbage, returning data if successful.
+    /// Reads the next frame, skipping over garbage, returning a [`Frame`] if successful.
     #[inline(always)]
     pub fn next<'a, 'src, 'pcm>(
         &'a mut self,
@@ -143,7 +149,7 @@ impl Decoder {
 }
 
 impl<'src> DecoderStream<'src> {
-    /// Constructs a new [DecoderStream](struct.DecoderStream.html)
+    /// Constructs a new [`DecoderStream`] over the given MPEG audio bytes.
     pub fn new(source: &'src [u8]) -> Self {
         Self {
             decoder: unsafe {
@@ -159,37 +165,7 @@ impl<'src> DecoderStream<'src> {
         }
     }
 
-    pub fn peek(&mut self) -> Result<Frame<'src, 'static>, InsufficientData> {
-        self.peek_cache_len = None;
-        unsafe {
-            let samples = self.dec(ptr::null_mut());
-            let frame_recv = &*self.frame_recv.as_ptr();
-            let response = translate_response(frame_recv, samples, &self.source, |_| &[]);
-            match &response {
-                Ok(Frame::Audio(samples)) => self.peek_cache_len = Some(samples.bytes_consumed),
-                Ok(Frame::Unknown { bytes_consumed, .. }) => {
-                    self.peek_cache_len = Some(*bytes_consumed)
-                }
-                Err(_) => self.peek_cache_len = None,
-            }
-            response
-        }
-    }
-
-    pub fn skip(&mut self) -> Result<(), InsufficientData> {
-        unsafe {
-            let offset = match self.peek_cache_len.take() {
-                Some(offset) => offset,
-                None => match self.peek()? {
-                    Frame::Audio(Samples { bytes_consumed, .. })
-                    | Frame::Unknown { bytes_consumed, .. } => bytes_consumed,
-                },
-            };
-            self.offset_trusted(offset);
-        }
-        Ok(())
-    }
-
+    /// Reads the next frame, skipping over garbage, returning a [`Frame`] if successful.
     pub fn next<'pcm>(&'pcm mut self) -> Result<Frame<'src, 'pcm>, InsufficientData> {
         self.peek_cache_len = None;
         unsafe {
@@ -207,6 +183,46 @@ impl<'src> DecoderStream<'src> {
 
             response
         }
+    }
+
+    /// Reads a frame without actually decoding it or advancing the iterator.
+    /// This means that the samples will always be empty in a frame containing PCM data,
+    /// therefore [`sample_count`](Samples::sample_count) should be used instead to inspect the length.
+    ///
+    /// Repeated calls to `peek` will return the same result.
+    /// Use [`skip`](Self::skip) to advance without decoding.
+    pub fn peek(&mut self) -> Result<Frame<'src, 'static>, InsufficientData> {
+        self.peek_cache_len = None;
+        unsafe {
+            let samples = self.dec(ptr::null_mut());
+            let frame_recv = &*self.frame_recv.as_ptr();
+            let response = translate_response(frame_recv, samples, &self.source, |_| &[]);
+            match &response {
+                Ok(Frame::Audio(samples)) => self.peek_cache_len = Some(samples.bytes_consumed),
+                Ok(Frame::Unknown { bytes_consumed, .. }) => {
+                    self.peek_cache_len = Some(*bytes_consumed)
+                }
+                Err(_) => self.peek_cache_len = None,
+            }
+            response
+        }
+    }
+
+    /// Skips the current frame the iterator is over, if any.
+    ///
+    /// No extra decoding cost if called after [`peek`](Self::peek)ing.
+    pub fn skip(&mut self) -> Result<(), InsufficientData> {
+        unsafe {
+            let offset = match self.peek_cache_len.take() {
+                Some(offset) => offset,
+                None => match self.peek()? {
+                    Frame::Audio(Samples { bytes_consumed, .. })
+                    | Frame::Unknown { bytes_consumed, .. } => bytes_consumed,
+                },
+            };
+            self.offset_trusted(offset);
+        }
+        Ok(())
     }
 
     #[inline(always)]
@@ -253,7 +269,7 @@ impl DecoderStreamOwned {
 }
 
 // The minimp3 API takes `int` for size, however that won't work if
-// your file exceeds 2GB (2147483647b) in size. Thankfully,
+// your file exceeds 2GB (usually 2^31-1 bytes) in size. Thankfully,
 // under pretty much no circumstances will each frame be >2GB.
 // Even if it would be, this makes it not UB and just return err/eof.
 #[inline(always)]
