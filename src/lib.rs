@@ -36,6 +36,9 @@ pub enum Frame<'src, 'pcm> {
 }
 
 /// Primitive decoder for parsing or decoding MPEG Audio data.
+///
+/// This is quite low-level and stores no state.
+/// If you can load the entire file at once, [`DecoderStream`] is more convenient.
 pub struct Decoder(MaybeUninit<ffi::mp3dec_t>);
 
 /// Static buffer for holding PCM data, used alongside a [`Decoder`].
@@ -62,7 +65,7 @@ pub struct DecoderStreamOwned {
 
 /// PCM frame data yielded by a decoder.
 ///
-/// Note that if a `peek`ing function was used, [`source`](Self::source) will be empty.
+/// Note that if a `peek`ing function was used, [`samples`](Self::samples) will be empty.
 pub struct Samples<'src, 'pcm> {
     /// Bitrate of the source frame in kb/s.
     pub bitrate: u32,
@@ -82,7 +85,7 @@ pub struct Samples<'src, 'pcm> {
     /// contained in the output buffer.
     /// Empty if using [`peek`](Decoder::peek).
     pub samples: &'pcm [Sample],
-    /// Total sample count if using [`peek`](Decoder::peek),
+    /// Total sample count if using a `peek`ing function,
     /// since [`samples`](Samples::samples) would be empty.
     pub sample_count: usize,
 }
@@ -220,8 +223,6 @@ impl<'src> DecoderStream<'src> {
     }
 
     /// Skips the current frame the iterator is over, if any.
-    ///
-    /// No extra decoding cost if called after [`peek`](Self::peek)ing.
     pub fn skip(&mut self) -> Result<(), InsufficientData> {
         unsafe {
             let offset = match self.peek_cache_len.take() {
