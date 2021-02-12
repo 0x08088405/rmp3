@@ -38,12 +38,16 @@ pub enum Frame<'src, 'pcm> {
 /// Primitive decoder for parsing or decoding MPEG Audio data.
 pub struct Decoder(MaybeUninit<ffi::mp3dec_t>);
 
+/// Static buffer for holding PCM data, used alongside a [`Decoder`].
+#[repr(transparent)]
+pub struct DecoderBuf([Sample; MAX_SAMPLES_PER_FRAME]);
+
 /// High-level streaming iterator for parsing or decoding MPEG Audio data.
 ///
 /// Potentially faster than a [`Decoder`] if planning to seek/decode entire data.
 pub struct DecoderStream<'src> {
     decoder: MaybeUninit<ffi::mp3dec_t>,
-    decoder_buf: [Sample; MAX_SAMPLES_PER_FRAME],
+    decoder_buf: DecoderBuf,
     frame_recv: MaybeUninit<ffi::mp3dec_frame_info_t>,
     peek_cache_len: Option<usize>,
     source: &'src [u8],
@@ -113,7 +117,7 @@ impl Decoder {
     pub fn next<'src, 'pcm>(
         &mut self,
         data: &'src [u8],
-        buf: &'pcm mut [Sample; MAX_SAMPLES_PER_FRAME],
+        buf: &'pcm mut DecoderBuf,
     ) -> Result<Frame<'src, 'pcm>, InsufficientData> {
         self.dec(data, Some(buf))
     }
@@ -121,13 +125,13 @@ impl Decoder {
     fn dec<'src, 'pcm>(
         &mut self,
         data: &'src [u8],
-        buf: Option<&'pcm mut [Sample; MAX_SAMPLES_PER_FRAME]>,
+        buf: Option<&'pcm mut DecoderBuf>,
     ) -> Result<Frame<'src, 'pcm>, InsufficientData> {
         unsafe {
             let mut frame_recv = MaybeUninit::uninit();
             let data_len = data_len_safe(data.len());
             let pcm_ptr = buf
-                .map(|r| r.as_ptr())
+                .map(|x| x.0.as_ptr())
                 .unwrap_or(ptr::null_mut());
             let samples = ffi::mp3dec_decode_frame(
                 self.0.as_mut_ptr(),
@@ -145,6 +149,13 @@ impl Decoder {
                 }
             })
         }
+    }
+}
+
+impl DecoderBuf {
+    /// Constructs a new `DecoderBuf`.
+    pub const fn new() -> Self {
+        Self([0 as Sample; MAX_SAMPLES_PER_FRAME])
     }
 }
 
@@ -169,7 +180,7 @@ impl<'src> DecoderStream<'src> {
     pub fn next<'pcm>(&'pcm mut self) -> Result<Frame<'src, 'pcm>, InsufficientData> {
         self.peek_cache_len = None;
         unsafe {
-            let pcm_ptr = &mut self.decoder_buf as *mut _ as *mut Sample;
+            let pcm_ptr = (&mut self.decoder_buf) as *mut DecoderBuf as *mut Sample;
             let samples = self.dec(pcm_ptr);
             let frame_recv = &*self.frame_recv.as_ptr();
             let response = translate_response(frame_recv, samples, &self.source, |points| {
