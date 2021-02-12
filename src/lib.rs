@@ -101,8 +101,8 @@ impl Decoder {
     /// This means that the samples will always be empty in a frame containing PCM data,
     /// therefore [`sample_count`](Samples::sample_count) should be used instead to inspect the length.
     #[inline(always)]
-    pub fn peek<'a, 'src>(
-        &'a mut self,
+    pub fn peek<'src>(
+        &mut self,
         data: &'src [u8],
     ) -> Result<Frame<'src, 'static>, InsufficientData> {
         self.dec(data, None)
@@ -110,16 +110,16 @@ impl Decoder {
 
     /// Reads the next frame, skipping over garbage, returning a [`Frame`] if successful.
     #[inline(always)]
-    pub fn next<'a, 'src, 'pcm>(
-        &'a mut self,
+    pub fn next<'src, 'pcm>(
+        &mut self,
         data: &'src [u8],
         buf: &'pcm mut [Sample; MAX_SAMPLES_PER_FRAME],
     ) -> Result<Frame<'src, 'pcm>, InsufficientData> {
         self.dec(data, Some(buf))
     }
 
-    fn dec<'a, 'src, 'pcm>(
-        &'a mut self,
+    fn dec<'src, 'pcm>(
+        &mut self,
         data: &'src [u8],
         buf: Option<&'pcm mut [Sample; MAX_SAMPLES_PER_FRAME]>,
     ) -> Result<Frame<'src, 'pcm>, InsufficientData> {
