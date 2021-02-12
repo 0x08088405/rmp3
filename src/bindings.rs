@@ -176,6 +176,7 @@ fn bindgen_test_layout_mp3dec_t() {
 extern "C" {
     pub fn mp3dec_init(dec: *mut mp3dec_t);
 }
+/// Note: Type depends on `float` feature (see [`Sample`](crate::Sample))
 #[cfg(not(feature = "float"))]
 pub type mp3d_sample_t = i16;
 #[cfg(feature = "float")]
