@@ -54,7 +54,7 @@ pub struct DecoderStream<'src> {
     frame_recv: MaybeUninit<ffi::mp3dec_frame_info_t>,
     peek_cache_len: Option<usize>,
     source: &'src [u8],
-    offset: usize,
+    source_copy: &'src [u8],
 }
 
 #[cfg(feature = "std")]
@@ -175,7 +175,7 @@ impl<'src> DecoderStream<'src> {
             frame_recv: MaybeUninit::uninit(),
             peek_cache_len: None,
             source,
-            offset: 0,
+            source_copy: source,
         }
     }
 
@@ -199,6 +199,12 @@ impl<'src> DecoderStream<'src> {
         }
     }
 
+    /// Gets the current position in the input data.
+    #[inline]
+    pub fn position(&self) -> usize {
+        unsafe { self.source.as_ptr().sub(self.source_copy.as_ptr() as usize) as usize }
+    }
+
     /// Reads a frame without actually decoding it or advancing the iterator.
     /// This means that the samples will always be empty in a frame containing PCM data,
     /// therefore [`sample_count`](Samples::sample_count) should be used instead to inspect the length.
@@ -220,6 +226,15 @@ impl<'src> DecoderStream<'src> {
             }
             response
         }
+    }
+
+    /// Sets the current position in the input data.
+    ///
+    /// If `position` is out of bounds, it's set to the end of the file instead.
+    #[inline]
+    pub fn set_position(&mut self, position: usize) {
+        let position = self.source_copy.len().min(position);
+        self.source = unsafe { self.source_copy.get_unchecked(position..) };
     }
 
     /// Skips the current frame the iterator is over, if any.
@@ -252,7 +267,6 @@ impl<'src> DecoderStream<'src> {
     #[inline(always)]
     unsafe fn offset_trusted(&mut self, offset: usize) {
         self.source = self.source.get_unchecked(offset..);
-        self.offset += offset;
     }
 }
 
