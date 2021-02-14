@@ -5,18 +5,15 @@
 # sed fixes a typedef with the float feature which changes the type based on a #define (-> rust feature)
 # !! make sure to remove platform specifics after running and keep bare minimum !!
 
-ss='s/'
-ss+='pub type mp3d_sample_t = i16;'
-ss+='/'
-ss+='\/\/\/ Note: Type depends on `float` feature (see [`Sample`](crate::Sample))\n'
+ss='1s/^/#![allow(clippy::all, non_camel_case_types)]\n\n/;'
+ss+='s/pub type mp3d_sample_t = i16;/'
 ss+='#[cfg(not(feature = "float"))]\n'
 ss+='pub type mp3d_sample_t = i16;\n'
 ss+='#[cfg(feature = "float")]\n'
-ss+='pub type mp3d_sample_t = f32;'
-ss+='/'
+ss+='pub type mp3d_sample_t = f32;/'
 
 git submodule update --init --recursive && \
     bindgen ffi/bindgen.h \
         --use-core --ctypes-prefix libc \
-        --output src/bindings.rs -- -Iffi/minimp3 && \
-    sed -i "${ss}" src/bindings.rs
+        --output src/ffi.rs -- -Iffi/minimp3 && \
+    sed -i "${ss}" src/ffi.rs
