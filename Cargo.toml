@@ -26,11 +26,11 @@ cc = "1.0"
 libc = "0.2"
 
 [features]
-default = ["only-mp3"]
+default = ["simd"]
 float = []
+mp1-mp2 = []
 nightly-docs = [] # internal
-no-simd = []
-only-mp3 = []
+simd = []
 std = []
 
 [package.metadata.docs.rs]
