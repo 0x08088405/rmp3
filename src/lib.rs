@@ -161,12 +161,27 @@ pub struct DecoderOwned<T> {
     owned: T,
 }
 
-/// Low-level decoder for parsing or decoding MPEG Audio data.
+/// Low-level stateless decoder for parsing or decoding MPEG Audio data.
 ///
 /// If you can load the entire file in advance, [`Decoder`] (which is a wrapper around this struct) will be more convenient.
 ///
+/// # Example
+///
 /// The second tuple field on the [`next`](Self::next) and [`peek`](Self::peek)
-/// functions indicate how many bytes the decoder consumed.
+/// functions indicate how many bytes the decoder consumed:
+///
+/// ```rust
+/// use rmp3::{RawDecoder, Sample, MAX_SAMPLES_PER_FRAME};
+///
+/// let mut decoder = RawDecoder::new();
+/// let mut buf = [Sample::default(); MAX_SAMPLES_PER_FRAME];
+///
+/// if let Some((frame, bytes_consumed)) = decoder.next(&your_data_here, &mut buf) {
+///     // do something with the frame
+///
+///     imaginary_file.skip(bytes_consumed);
+/// }
+/// ```
 pub struct RawDecoder(MaybeUninit<ffi::mp3dec_t>);
 
 /// Conditional type used to represent one PCM sample in output data.
