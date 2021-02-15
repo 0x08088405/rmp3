@@ -1,5 +1,44 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+//! Idiomatic `no_std` bindings to [minimp3](https://github.com/lieff/minimp3) which don't allocate.
+//!
+//! # Features
+//! - `float`: Changes the type of [`Sample`] to a single-precision float,
+//! and thus decoders will output float PCM.
+//!     - **This is a non-additive feature and will change API.**
+//!     **Do not do this in a library without notice [(why?)](
+//! https://github.com/rust-lang/cargo/issues/4328#issuecomment-652075026).**
+//! - `mp1-mp2`: Includes MP1 and MP2 decoding code.
+//! - `simd` *(default)*: Enables handwritten SIMD optimizations on eligible targets.
+//! - `std` *(default)*: Adds things that require `std`,
+//! right now that's just [`DecoderBox`] for owned data on the heap.
+//!
+//! # Example
+//!
+//! ```rust
+//! use rmp3::{Decoder, Frame};
+//!
+//! let mp3 = std::fs::read("test.mp3")?;
+//! let mut decoder = Decoder::new(&mp3);
+//!
+//! while let Some(frame) = decoder.next() {
+//!     if let Frame::Audio(audio) = frame {
+//!         // process audio frame here!
+//
+//!         imaginary_player.append(
+//!             audio.channels(),
+//!             audio.sample_count(),
+//!             audio.sample_rate(),
+//!             audio.samples(),
+//!         );
+//!     }
+//! }
+//! ```
+//!
+//! See individual documentation on [`Decoder`] and [`RawDecoder`] for more examples.
+
+#![deny(missing_docs)]
+
 #![cfg_attr(feature = "nightly-docs", feature(doc_cfg))]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 #[doc(hidden)]
 pub mod ffi;
@@ -64,6 +103,45 @@ pub enum Frame<'src, 'pcm> {
 /// High-level streaming iterator for parsing or decoding MPEG Audio data.
 ///
 /// If the decoder should own the data, use a [`DecoderBox`].
+///
+/// # Examples
+///
+/// Example that decodes every frame in an MP3 file:
+///
+/// ```rust
+/// use rmp3::{Decoder, Frame};
+///
+/// let mp3 = std::fs::read("test.mp3")?;
+/// let mut decoder = Decoder::new(&mp3);
+///
+/// while let Some(frame) = decoder.next() {
+///     if let Frame::Audio(audio) = frame {
+///         // process audio frame here!
+///     }
+/// }
+/// ```
+///
+/// Another example that steps through every frame with `peek` (does not decode):
+///
+/// ```rust
+/// use rmp3::{Decoder, Frame};
+///
+/// let mp3 = std::fs::read("test.mp3")?;
+/// let mut decoder = Decoder::new(&mp3);
+///
+/// let mut length = 0.0f64;
+///
+/// while let Some(frame) = decoder.peek() {
+///     if let Frame::Audio(audio) = frame {
+///         length += audio.sample_count() as f64 / audio.sample_rate() as f64;
+///
+///         // important: `peek` does *not* move to the next frame on its own
+///         decoder.skip();
+///     }
+/// }
+///
+/// println!("Length: {:02}:{:05.2}", length as u64 / 60, length % 60.0);
+/// ```
 pub struct Decoder<'src> {
     cached_peek_len: Option<NonZeroUsize>,
     pcm: MaybeUninit<[Sample; MAX_SAMPLES_PER_FRAME]>,
@@ -72,7 +150,7 @@ pub struct Decoder<'src> {
     source_copy: &'src [u8],
 }
 
-/// Exact same as [`Decoder`], but owns the data.
+/// Exactly the same as [`Decoder`], but owns the data.
 #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "std")))]
 #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "std"))]
 pub struct DecoderBox {
@@ -90,8 +168,8 @@ pub struct RawDecoder(MaybeUninit<ffi::mp3dec_t>);
 
 /// Conditional type used to represent one PCM sample in output data.
 ///
-/// Normally a signed 16-bit integer (i16), but if the *"float"* feature is enabled,
-/// it's a 32-bit single precision float (f32).
+/// Normally a signed 16-bit integer (`i16`), but if the *"float"* feature is enabled,
+/// it's a 32-bit single-precision float (`f32`).
 #[cfg(not(feature = "float"))]
 pub type Sample = i16;
 #[cfg(feature = "float")]
