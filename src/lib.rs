@@ -9,7 +9,7 @@
 //! - `mp1-mp2`: Includes MP1 and MP2 decoding code.
 //! - `simd` *(default)*: Enables handwritten SIMD optimizations on eligible targets.
 //! - `std` *(default)*: Adds things that require `std`,
-//! right now that's just [`DecoderBox`] for owned data on the heap.
+//! right now that's just [`DecoderOwned`] for owned data on the heap.
 //!
 //! # Example
 //!
@@ -45,6 +45,9 @@ pub mod ffi;
 
 use core::{marker::PhantomData, mem::{MaybeUninit}, num::NonZeroUsize, ptr};
 use libc::c_int;
+
+#[cfg(feature = "std")]
+use std::{rc::Rc, sync::Arc};
 
 // The minimp3 API takes `int` for size, however that won't work if
 // your file exceeds 2GB (usually 2^31-1 bytes) in size. Thankfully,
@@ -102,7 +105,7 @@ pub enum Frame<'src, 'pcm> {
 
 /// High-level streaming iterator for parsing or decoding MPEG Audio data.
 ///
-/// If the decoder should own the data, use a [`DecoderBox`].
+/// If the decoder should own the data, use a [`DecoderOwned`].
 ///
 /// # Examples
 ///
@@ -150,12 +153,12 @@ pub struct Decoder<'src> {
     source_copy: &'src [u8],
 }
 
-/// Exactly the same as [`Decoder`], but owns the data.
+/// Exactly the same as [`Decoder`], but owns the data. Check [`Decoder`] for examples.
 #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "std")))]
 #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "std"))]
-pub struct DecoderBox {
+pub struct DecoderOwned<T> {
     decoder: Decoder<'static>,
-    owned: Vec<u8>,
+    owned: T,
 }
 
 /// Low-level decoder for parsing or decoding MPEG Audio data.
@@ -243,29 +246,63 @@ impl<'src> Decoder<'src> {
 }
 
 #[cfg(feature = "std")]
-impl DecoderBox {
+impl DecoderOwned<Vec<u8>> {
     /// Constructs a new `DecoderBox` for processing MPEG Audio.
     pub fn new<T>(source: T) -> Self
     where
         T: Into<Vec<u8>>,
     {
-        let owned_data = source.into();
+        let source = source.into();
 
-        // SAFETY: All functions produce decayed 'static to 'a where `&'a self`,
+        // SAFETY: All functions decay all 'static to 'a as in `&'a self`,
         // and the `Vec` is not moved, reallocated, or dropped until the entire struct is.
         let self_reference = unsafe {
-            std::mem::transmute::<_, &'static [u8]>(owned_data.as_slice())
+            std::mem::transmute::<_, &'static [u8]>(source.as_slice())
         };
 
         Self {
             decoder: Decoder::new(self_reference),
-            owned: owned_data,
+            owned: source,
         }
     }
+}
 
+#[cfg(feature = "std")]
+impl<T: Into<Vec<u8>>> From<T> for DecoderOwned<Vec<u8>> {
+    fn from(x: T) -> Self {
+        Self::new(x)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: AsRef<[u8]>> From<Rc<T>> for DecoderOwned<Rc<T>> {
+    fn from(x: Rc<T>) -> Self {
+        // SAFETY: See `Self::new`
+        let self_ref: &'static [u8] = unsafe { std::mem::transmute(x.as_ref().as_ref()) };
+        Self {
+            decoder: Decoder::new(self_ref),
+            owned: x,
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: AsRef<[u8]>> From<Arc<T>> for DecoderOwned<Arc<T>> {
+    fn from(x: Arc<T>) -> Self {
+        // SAFETY: See `Self::new`
+        let self_ref: &'static [u8] = unsafe { std::mem::transmute(x.as_ref().as_ref()) };
+        Self {
+            decoder: Decoder::new(self_ref),
+            owned: x,
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T> DecoderOwned<T> {
     /// Consumes the `DecoderBox`, returning the owned data.
     #[inline]
-    pub fn into_inner(self) -> Vec<u8> {
+    pub fn into_inner(self) -> T {
         self.owned
     }
 
@@ -303,12 +340,6 @@ impl DecoderBox {
     #[inline]
     pub fn skip(&mut self) -> Option<()> {
         self.decoder.skip()
-    }
-
-    /// Gets a reference to the owned data.
-    #[inline]
-    pub fn source(&self) -> &[u8] {
-        self.owned.as_slice()
     }
 }
 
@@ -392,14 +423,16 @@ impl<'src, 'pcm> Audio<'src, 'pcm> {
     /// Gets the channel count of this frame.
     #[inline]
     pub fn channels(&self) -> u16 {
-        // TODO: This has to be safe, right? Pretty sure there's a table.
+        // CAST: This is always 1 or 2 (but conventionally channels are u16).
+        // info->channels = HDR_IS_MONO(hdr) ? 1 : 2;
         self.info.channels as u16
     }
 
     /// Gets the MPEG layer of this frame.
     #[inline]
     pub fn mpeg_layer(&self) -> u8 {
-        // TODO: Same as above!
+        // CAST: This is always at most 4.
+        // info->layer = 4 - HDR_GET_LAYER(hdr);
         self.info.layer as u8
     }
 
