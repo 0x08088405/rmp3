@@ -1,4 +1,4 @@
-[![Build Status (Travis-CI)](https://travis-ci.com/notviri/rmp3.svg?branch=master)](https://travis-ci.com/notviri/rmp3)
+[![Build Status (Travis-CI)](https://travis-ci.com/notviri/rmp3.svg?branch=trunk)](https://travis-ci.com/notviri/rmp3)
 [![Crates.io](https://img.shields.io/crates/v/rmp3)](https://crates.io/crates/rmp3)
 [![Documentation](https://docs.rs/rmp3/badge.svg)](https://docs.rs/rmp3)
 
@@ -15,13 +15,13 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rmp3 = "0.2"
+rmp3 = "0.3"
 ```
 
 ... or, if you need `std` specific features:
 ```toml
 [dependencies]
-rmp3 = { features = ["std"], version = "0.2" }
+rmp3 = { features = ["std"], version = "0.3" }
 ```
 
 The most basic example is using the provided streaming iterator to decode a file, like so:
