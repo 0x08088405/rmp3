@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(feature = "nightly-docs", feature(doc_cfg))]
 
 #[doc(hidden)]
 pub mod ffi;
@@ -62,7 +63,7 @@ pub enum Frame<'src, 'pcm> {
 
 /// High-level streaming iterator for parsing or decoding MPEG Audio data.
 ///
-/// If the decoder should own the data, use a [`DecoderBox`](Self::DecoderBox).
+/// If the decoder should own the data, use a [`DecoderBox`].
 pub struct Decoder<'src> {
     cached_peek_len: Option<NonZeroUsize>,
     pcm: MaybeUninit<[Sample; MAX_SAMPLES_PER_FRAME]>,
@@ -72,10 +73,11 @@ pub struct Decoder<'src> {
 }
 
 /// Exact same as [`Decoder`], but owns the data.
-#[cfg(feature = "std")]
+#[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "std")))]
+#[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "std"))]
 pub struct DecoderBox {
     decoder: Decoder<'static>,
-    _owned: Vec<u8>,
+    owned: Vec<u8>,
 }
 
 /// Low-level decoder for parsing or decoding MPEG Audio data.
@@ -179,8 +181,14 @@ impl DecoderBox {
 
         Self {
             decoder: Decoder::new(self_reference),
-            _owned: owned_data,
+            owned: owned_data,
         }
+    }
+
+    /// Consumes the `DecoderBox`, returning the owned data.
+    #[inline]
+    pub fn into_inner(self) -> Vec<u8> {
+        self.owned
     }
 
     /// Reads the next frame, skipping over potential garbage data.
@@ -217,6 +225,12 @@ impl DecoderBox {
     #[inline]
     pub fn skip(&mut self) -> Option<()> {
         self.decoder.skip()
+    }
+
+    /// Gets a reference to the owned data.
+    #[inline]
+    pub fn source(&self) -> &[u8] {
+        self.owned.as_slice()
     }
 }
 

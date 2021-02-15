@@ -28,6 +28,10 @@ libc = "0.2"
 [features]
 default = ["only-mp3"]
 float = []
+nightly-docs = [] # internal
 no-simd = []
 only-mp3 = []
 std = []
+
+[package.metadata.docs.rs]
+features = ["nightly-docs", "std"]
