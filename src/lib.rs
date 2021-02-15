@@ -3,7 +3,7 @@
 #[doc(hidden)]
 pub mod ffi;
 
-use core::{marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, ptr};
+use core::{marker::PhantomData, mem::{MaybeUninit}, num::NonZeroUsize, ptr};
 use libc::c_int;
 
 // The minimp3 API takes `int` for size, however that won't work if
@@ -61,12 +61,21 @@ pub enum Frame<'src, 'pcm> {
 }
 
 /// High-level streaming iterator for parsing or decoding MPEG Audio data.
+///
+/// If the decoder should own the data, use a [`DecoderBox`](Self::DecoderBox).
 pub struct Decoder<'src> {
     cached_peek_len: Option<NonZeroUsize>,
     pcm: MaybeUninit<[Sample; MAX_SAMPLES_PER_FRAME]>,
     raw: RawDecoder,
     source: &'src [u8],
     source_copy: &'src [u8],
+}
+
+/// Exact same as [`Decoder`], but owns the data.
+#[cfg(feature = "std")]
+pub struct DecoderBox {
+    decoder: Decoder<'static>,
+    _owned: Vec<u8>,
 }
 
 /// Low-level decoder for parsing or decoding MPEG Audio data.
@@ -99,9 +108,7 @@ impl<'src> Decoder<'src> {
     }
 
     /// Reads the next frame, skipping over potential garbage data.
-    pub fn next<'pcm>(
-        &'pcm mut self,
-    ) -> Option<Frame<'src, 'pcm>> {
+    pub fn next<'pcm>(&'pcm mut self) -> Option<Frame<'src, 'pcm>> {
         self.cached_peek_len = None; // clear cache
         unsafe {
             let (frame, len) = self.raw.next(self.source, &mut *self.pcm.as_mut_ptr())?;
@@ -155,6 +162,64 @@ impl<'src> Decoder<'src> {
     }
 }
 
+#[cfg(feature = "std")]
+impl DecoderBox {
+    /// Constructs a new `DecoderBox` for processing MPEG Audio.
+    pub fn new<T>(source: T) -> Self
+    where
+        T: Into<Vec<u8>>,
+    {
+        let owned_data = source.into();
+
+        // SAFETY: All functions produce decayed 'static to 'a where `&'a self`,
+        // and the `Vec` is not moved, reallocated, or dropped until the entire struct is.
+        let self_reference = unsafe {
+            std::mem::transmute::<_, &'static [u8]>(owned_data.as_slice())
+        };
+
+        Self {
+            decoder: Decoder::new(self_reference),
+            _owned: owned_data,
+        }
+    }
+
+    /// Reads the next frame, skipping over potential garbage data.
+    #[inline]
+    pub fn next<'a>(&'a mut self) -> Option<Frame<'a, 'a>> {
+        self.decoder.next()
+    }
+
+    /// Reads the next frame without decoding it, or advancing the decoder.
+    /// Use [`skip`](Self::skip) to advance.
+    ///
+    /// This means that the samples will always be empty in [`Audio`],
+    /// and [`sample_count`](Audio::sample_count) should be used to inspect the length.
+    #[inline]
+    pub fn peek<'a>(&'a mut self) -> Option<Frame<'a, 'static>> {
+        self.decoder.peek()
+    }
+
+    /// Gets the current position in the input data, starting from 0.
+    #[inline]
+    pub fn position(&self) -> usize {
+        self.decoder.position()
+    }
+
+    /// Sets the current position in the input data.
+    ///
+    /// If `position` is out of bounds, it's set to the end of the data instead.
+    #[inline]
+    pub fn set_position(&mut self, position: usize) {
+        self.decoder.set_position(position)
+    }
+
+    /// Skips the current frame the decoder is over, if any.
+    #[inline]
+    pub fn skip(&mut self) -> Option<()> {
+        self.decoder.skip()
+    }
+}
+
 impl RawDecoder {
     /// Constructs a new `RawDecoder` for processing MPEG Audio.
     pub fn new() -> Self {
@@ -183,10 +248,7 @@ impl RawDecoder {
     /// This means that the samples will always be empty in [`Audio`],
     /// and [`sample_count`](Audio::sample_count) should be used to inspect the length.
     #[inline]
-    pub fn peek<'src>(
-        &mut self,
-        src: &'src [u8],
-    ) -> Option<(Frame<'src, 'static>, usize)> {
+    pub fn peek<'src>(&mut self, src: &'src [u8]) -> Option<(Frame<'src, 'static>, usize)> {
         self.call(src, None)
     }
 
