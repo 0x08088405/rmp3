@@ -1,6 +1,6 @@
 [package]
 name = "rmp3"
-version = "0.2.1"
+version = "0.3.0"
 description = "fast & safe no_std minimp3 wrapper"
 authors = ["viri <git@stuff.moe>"]
 edition = "2018"
@@ -26,7 +26,12 @@ cc = "1.0"
 libc = "0.2"
 
 [features]
-default = ["only-mp3"]
+default = ["simd"]
 float = []
-no-simd = []
-only-mp3 = []
+mp1-mp2 = []
+nightly-docs = [] # internal
+simd = []
+std = []
+
+[package.metadata.docs.rs]
+features = ["nightly-docs", "std"]

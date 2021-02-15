@@ -1,2 +1,6 @@
+# cargo builds & cache
 /target
 Cargo.lock
+
+# local testing
+/src/bin

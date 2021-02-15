@@ -1,41 +1,57 @@
-[![Build Status (Travis-CI)](https://travis-ci.com/notviri/rmp3.svg?branch=master)](https://travis-ci.com/notviri/rmp3)
+[![Build Status (Travis-CI)](https://travis-ci.com/notviri/rmp3.svg?branch=trunk)](https://travis-ci.com/notviri/rmp3)
 [![Crates.io](https://img.shields.io/crates/v/rmp3)](https://crates.io/crates/rmp3)
 [![Documentation](https://docs.rs/rmp3/badge.svg)](https://docs.rs/rmp3)
 
 # rmp3
 Idiomatic `no_std` bindings to [minimp3](https://github.com/lieff/minimp3) which don't allocate.
 
+## Documentation
+
+The documentation is hosted online over [at docs.rs](https://docs.rs/rmp3/).
+
 ## Usage
+
+Add this to your `Cargo.toml`:
+
 ```toml
-# Cargo.toml
 [dependencies]
-rmp3 = "0.2"
+rmp3 = "0.3"
 ```
-A simple forward streaming iterator is provided for decoding samples.
+
+... or, if you need `std` specific features:
+```toml
+[dependencies]
+rmp3 = { features = ["std"], version = "0.3" }
+```
+
+The most basic example is using the provided streaming iterator to decode a file, like so:
 
 ```rust
 use rmp3::{Decoder, Frame};
 
-// It returns a reference to the internal fixed buffer along with the frame info:
-let mut decoder = Decoder::new(&your_data_here);
-while let Some(Frame { channels, sample_rate, samples, .. }) = decoder.next_frame() {
-    // * process frame data here *
-}
-
-// Sometimes you just want to iterate the frames without decoding them, as it's much faster.
-// Example to calculate song length - 800µs vs. 350ms when decoding a 4:52 track (on a low-end CPU)
-let mut decoder = Decoder::new(&your_data_here);
-let mut length = 0.0f32; // length in seconds
-while let Some(Frame { sample_rate, sample_count, .. }) = decoder.peek_frame() {
-    // Not all frames necessarily contain samples (next_frame would skip over these).
-    if sample_count != 0 {
-        length += sample_count as f32 / sample_rate as f32;
+let mp3 = std::fs::read("test.mp3")?;
+let mut decoder = Decoder::new(&mp3);
+while let Some(frame) = decoder.next() {
+    if let Frame::Audio(audio) = frame {
+        // process audio frame here!
+        imaginary_player.append(
+            audio.channels(),
+            audio.sample_count(),
+            audio.sample_rate(),
+            audio.samples(),
+        );
     }
-    decoder.skip_frame();
 }
 ```
 
+Check out the [documentation](#Documentation) for more examples and info.
+
 ## Features
-- `float` - Output 32-bit float PCM instead of signed 16-bit integers
-- `no-simd` - Disable all manual SIMD optimizations
-- `only-mp3` (default) - Strip MP1/MP2 decoding logic
+- `float`: Changes the sample type to a single-precision float,
+and thus decoders will output float PCM.
+    - **This is a non-additive feature and will change API.**
+    **Do not do this in a library without notice [(why?)](
+https://github.com/rust-lang/cargo/issues/4328#issuecomment-652075026).**
+- `mp1-mp2`: Includes MP1 and MP2 decoding code.
+- `simd` *(default)*: Enables handwritten SIMD optimizations on eligible targets.
+- `std`: Adds things that require `std`,

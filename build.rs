@@ -7,10 +7,10 @@ fn main() {
     if cfg!(feature = "float") {
         build.define("MINIMP3_FLOAT_OUTPUT", None);
     }
-    if cfg!(feature = "no-simd") {
+    if cfg!(not(feature = "simd")) {
         build.define("MINIMP3_NO_SIMD", None);
     }
-    if cfg!(feature = "only-mp3") {
+    if cfg!(not(feature = "mp1-mp2")) {
         build.define("MINIMP3_ONLY_MP3", None);
     }
 
