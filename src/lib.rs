@@ -16,18 +16,17 @@
 //! ```no_run
 //! use rmp3::{Decoder, Frame};
 //!
-//! fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let mp3 = std::fs::read("test.mp3")?;
-//!     let mut decoder = Decoder::new(&mp3);
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let mp3 = std::fs::read("test.mp3")?;
+//! let mut decoder = Decoder::new(&mp3);
 //!
-//!     while let Some(frame) = decoder.next() {
-//!         if let Frame::Audio(audio) = frame {
-//!             // process audio frame here!
-//!         }
+//! while let Some(frame) = decoder.next() {
+//!     if let Frame::Audio(audio) = frame {
+//!         // process audio frame here!
 //!     }
-//!
-//!     Ok(())
 //! }
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! See individual documentation on [`Decoder`] and [`RawDecoder`] for more examples.
@@ -111,44 +110,40 @@ pub enum Frame<'src, 'pcm> {
 /// ```no_run
 /// use rmp3::{Decoder, Frame};
 ///
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let mp3 = std::fs::read("test.mp3")?;
-///     let mut decoder = Decoder::new(&mp3);
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mp3 = std::fs::read("test.mp3")?;
+/// let mut decoder = Decoder::new(&mp3);
 ///
-///     // step through with `next` which decodes each frame
-///     while let Some(frame) = decoder.next() {
-///         if let Frame::Audio(audio) = frame {
-///             // process audio frame here!
-///         }
+/// // step through with `next` which decodes each frame
+/// while let Some(frame) = decoder.next() {
+///     if let Frame::Audio(audio) = frame {
+///         // process audio frame here!
 ///     }
-///
-///     Ok(())
 /// }
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// Another example that steps through every frame with `peek` (does not decode) and calculates the length:
 ///
 /// ```no_run
-/// use rmp3::{Decoder, Frame};
-///
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let mp3 = std::fs::read("test.mp3")?;
-///     let mut decoder = Decoder::new(&mp3);
-///     let mut length = 0.0f64;
-///
-///     // step through with `peek` which does not do decoding
-///     while let Some(frame) = decoder.peek() {
-///         if let Frame::Audio(audio) = frame {
-///             length += audio.sample_count() as f64 / audio.sample_rate() as f64;
-///
-///             // important: `peek` does *not* move to the next frame on its own
-///             decoder.skip();
-///         }
+/// # use rmp3::{Decoder, Frame};
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let mp3 = std::fs::read("test.mp3")?;
+/// # let mut decoder = Decoder::new(&mp3);
+/// # let mut length = 0.0f64;
+/// // step through with `peek` which does not do decoding
+/// while let Some(frame) = decoder.peek() {
+///     if let Frame::Audio(audio) = frame {
+///         length += audio.sample_count() as f64 / audio.sample_rate() as f64;
+///         // important: `peek` does *not* move to the next frame on its own
+///         decoder.skip();
 ///     }
-///     println!("Length: {:02}:{:05.2}", length as u64 / 60, length % 60.0);
-///
-///     Ok(())
 /// }
+///
+/// println!("Length: {:02}:{:05.2}", length as u64 / 60, length % 60.0);
+/// # Ok(())
+/// # }
 /// ```
 pub struct Decoder<'src> {
     cached_peek_len: Option<NonZeroUsize>,
@@ -178,20 +173,20 @@ pub struct DecoderOwned<T> {
 /// ```no_run
 /// use rmp3::{RawDecoder, Sample, MAX_SAMPLES_PER_FRAME};
 ///
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let mut decoder = RawDecoder::new();
-///     let mut buf = [Sample::default(); MAX_SAMPLES_PER_FRAME];
-///     let your_data_here = [ /* some slice */ ];
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut decoder = RawDecoder::new();
+/// let mut buf = [Sample::default(); MAX_SAMPLES_PER_FRAME];
+/// let your_data_here = [ /* some slice */ ];
 ///
-///     // pseudocode
-///     if let Some((frame, bytes_consumed)) = decoder.next(&your_data_here, &mut buf) {
-///         // do something with the frame
+/// // pseudocode
+/// if let Some((frame, bytes_consumed)) = decoder.next(&your_data_here, &mut buf) {
+///     // do something with the frame
 ///
-///         // imaginary_file.skip(bytes_consumed);
-///     }
-///
-///     Ok(())
+///     // imaginary_file.skip(bytes_consumed);
 /// }
+///
+/// # Ok(())
+/// # }
 /// ```
 pub struct RawDecoder(MaybeUninit<ffi::mp3dec_t>);
 
