@@ -7,7 +7,7 @@ edition = "2021"
 license = "CC0-1.0"
 homepage = "https://github.com/viriuwu/rmp3"
 repository = "https://github.com/viriuwu/rmp3"
-documentation = "https://docs.rs/rmp3"
+documentation = "https://docs.rs/empy"
 readme = "README.md"
 
 # for crates.io
