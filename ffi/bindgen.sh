@@ -1,19 +1,21 @@
 #!/bin/sh
 
-# easy script for regenerating bindings (mainly for myself, NOT part of the build process)
-# run from repository root, also install `cargo install bindgen` cli if you haven't
-# sed fixes a typedef with the float feature which changes the type based on a #define (-> rust feature)
-# !! make sure to remove platform specifics after running and keep bare minimum !!
+# script for reproducing src/ffi.rs
+# you can get `bindgen` via cargo install
+# you're meant to run this from the repository root
 
-ss='1s/^/#![allow(clippy::all, non_camel_case_types)]\n\n/;'
-ss+='s/pub type mp3d_sample_t = i16;/'
-ss+='#[cfg(not(feature = "float"))]\n'
-ss+='pub type mp3d_sample_t = i16;\n'
-ss+='#[cfg(feature = "float")]\n'
-ss+='pub type mp3d_sample_t = f32;/'
+# generate src/ffi.rs based on ffi/bindgen.h
+bindgen ffi/bindgen.h \
+        --raw-line '#![allow(clippy::all, non_camel_case_types)]' \
+        --allowlist-function '^mp3dec.+' \
+        --allowlist-type '^mp3dec.+' \
+        --ctypes-prefix 'chlorine' \
+        --no-layout-tests \
+        --rust-target '1.47' \
+        --size_t-is-usize \
+        --use-core \
+        --output src/ffi.rs \
+        -- -I 'ffi/minimp3'
 
-git submodule update --init --recursive && \
-    bindgen ffi/bindgen.h \
-        --use-core --ctypes-prefix libc \
-        --output src/ffi.rs -- -Iffi/minimp3 && \
-    sed -i "${ss}" src/ffi.rs
+# bindgen filter misses the unused stdint.h definitions
+sed -ri '/__u?int[0-9]/d' src/ffi.rs
