@@ -23,7 +23,7 @@ pub struct Audio<'src, 'pcm> {
     bitrate: u16,
     channels: u8,
     mpeg_layer: u8,
-    sample_count: u16,
+    sample_count: NonZeroU16,
     sample_rate: u16,
 
     src: &'src [u8],
@@ -39,7 +39,6 @@ impl<'src, 'pcm> Audio<'src, 'pcm> {
     /// Gets the bitrate of this frame in kb/s.
     #[inline]
     pub fn bitrate(&self) -> u16 {
-        // 8 <= x <= 448
         // TODO check what happens with the reserved bitrates
         self.bitrate
     }
@@ -47,14 +46,12 @@ impl<'src, 'pcm> Audio<'src, 'pcm> {
     /// Gets how many channels are in this frame.
     #[inline]
     pub fn channels(&self) -> NonZeroU16 {
-        // x ∈ {1, 2}
         unsafe { NonZeroU16::new_unchecked(self.channels as u16) }
     }
 
     /// Gets the MPEG layer of this frame.
     #[inline]
     pub fn mpeg_layer(&self) -> u8 {
-        // 1 <= x <= 3
         // TODO check what happens when the illegal 0b00 layer is passed
         self.mpeg_layer as u8
     }
@@ -62,14 +59,13 @@ impl<'src, 'pcm> Audio<'src, 'pcm> {
     /// Gets the number of samples in this frame.
     #[inline]
     pub fn sample_count(&self) -> NonZeroU16 {
-        // 0 < x <= MAX_SAMPLES < 2^16-1
-        unsafe { NonZeroU16::new_unchecked(self.sample_count as u16) }
+        self.sample_count
     }
 
     /// Gets the sample rate of this frame in Hz.
     #[inline]
     pub fn sample_rate(&self) -> NonZeroU16 {
-        // 8000 <= x <= 44100
+        // TODO what happens with the DIY ones?
         unsafe { NonZeroU16::new_unchecked(self.sample_rate as u16) }
     }
 
@@ -80,7 +76,7 @@ impl<'src, 'pcm> Audio<'src, 'pcm> {
     #[inline]
     pub fn samples(&self) -> &'pcm [f32] {
         if let Some(buf) = self.pcm {
-            unsafe { slice::from_raw_parts(buf.as_ptr(), usize::from(self.sample_count)) }
+            unsafe { slice::from_raw_parts(buf.as_ptr(), usize::from(self.sample_count.get())) }
         } else {
             &[]
         }
@@ -168,12 +164,13 @@ impl Decoder {
             let info = &*info_recv.as_ptr();
 
             if sample_count != 0 {
+                let nz_u16 = NonZeroU16::new_unchecked;
                 let audio = Audio {
-                    bitrate: info.bitrate_kbps as u16, // 8 <= x <= 448
-                    channels: info.channels as u8,     // x ∈ {1, 2}
-                    mpeg_layer: info.layer as u8,      // 1 <= x <= 3
-                    sample_count: sample_count as u16, // 0 < x <= MAX_SAMPLES
-                    sample_rate: info.hz as u16,       // 8000 <= x <= 44100
+                    bitrate: info.bitrate_kbps as u16,         // x ∈ [8, 448]
+                    channels: info.channels as u8,             // x ∈ {1, 2}
+                    mpeg_layer: info.layer as u8,              // x ∈ {1, 2, 3}
+                    sample_count: nz_u16(sample_count as u16), // x ∈ (0, MAX_SAMPLES]
+                    sample_rate: info.hz as u16,               // x ∈ [8000, 44100]
 
                     src: frame_src(src, info),
                     pcm: ptr::NonNull::new(dest_ptr),
