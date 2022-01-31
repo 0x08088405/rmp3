@@ -8,7 +8,7 @@
 // TODO: should the members here be pub(crate)? hope that won't need sed
 mod ffi;
 
-use core::{marker::PhantomData, mem::MaybeUninit, num::NonZeroU16, ptr, slice};
+use core::{fmt, marker::PhantomData, mem::MaybeUninit, num::NonZeroU16, ptr, slice};
 use chlorine::c_int;
 
 /// Maximum number of samples per frame.
@@ -47,7 +47,7 @@ impl<'src, 'pcm> Audio<'src, 'pcm> {
     /// Gets how many channels are in this frame.
     #[inline]
     pub fn channels(&self) -> NonZeroU16 {
-        // x <- {1, 2}
+        // x ∈ {1, 2}
         unsafe { NonZeroU16::new_unchecked(self.channels as u16) }
     }
 
@@ -89,6 +89,34 @@ impl<'src, 'pcm> Audio<'src, 'pcm> {
     #[inline]
     pub fn source(&self) -> &'src [u8] {
         self.src
+    }
+}
+
+impl fmt::Debug for Frame<'_, '_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Audio(audio) => f.debug_tuple("Audio").field(audio).finish(),
+            Self::Other(_) => f.debug_tuple("Other").field(&"&[...]").finish(),
+        }
+    }
+}
+
+impl fmt::Debug for Audio<'_, '_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Audio")
+            .field("bitrate", &self.bitrate)
+            .field("channels", &self.channels)
+            .field("mpeg_layer", &self.mpeg_layer)
+            .field("sample_count", &self.sample_count)
+            .field("sample_rate", &self.sample_rate)
+            .field("samples", {
+                if self.pcm.is_some() {
+                    &"&[...]"
+                } else {
+                    &"&[not decoded]"
+                }
+            })
+            .finish()
     }
 }
 
@@ -142,9 +170,9 @@ impl Decoder {
             if sample_count != 0 {
                 let audio = Audio {
                     bitrate: info.bitrate_kbps as u16, // 8 <= x <= 448
-                    channels: info.channels as u8,     // x <- {1, 2}
+                    channels: info.channels as u8,     // x ∈ {1, 2}
                     mpeg_layer: info.layer as u8,      // 1 <= x <= 3
-                    sample_count: sample_count as u16, // x <= MAX_SAMPLES
+                    sample_count: sample_count as u16, // 0 < x <= MAX_SAMPLES
                     sample_rate: info.hz as u16,       // 8000 <= x <= 44100
 
                     src: frame_src(src, info),
