@@ -47,11 +47,6 @@ while let Some(frame) = decoder.next() {
 Check out the [documentation](#Documentation) for more examples and info.
 
 ## Features
-- `float`: Changes the sample type to a single-precision float,
-and thus decoders will output float PCM.
-    - **This is a non-additive feature and will change API.**
-    **Do not do this in a library without notice [(why?)](
-https://github.com/rust-lang/cargo/issues/4328#issuecomment-652075026).**
 - `mp1-mp2`: Includes MP1 and MP2 decoding code.
 - `simd` *(default)*: Enables handwritten SIMD optimizations on eligible targets.
 - `std`: Adds things that require `std`,

@@ -1,11 +1,6 @@
 //! Idiomatic `no_std` bindings to [minimp3](https://github.com/lieff/minimp3) which don't allocate.
 //!
 //! # Features
-//! - `float`: Changes the type of [`Sample`] to a single-precision float,
-//! and thus decoders will output float PCM.
-//!     - **This is a non-additive feature and will change API.**
-//!     **Do not do this in a library without notice [(why?)](
-//! https://github.com/rust-lang/cargo/issues/4328#issuecomment-652075026).**
 //! - `mp1-mp2`: Includes MP1 and MP2 decoding code.
 //! - `simd` *(default)*: Enables handwritten SIMD optimizations on eligible targets.
 //! - `std` *(default)*: Adds things that require `std`,
@@ -190,13 +185,7 @@ pub struct DecoderOwned<T> {
 /// ```
 pub struct RawDecoder(MaybeUninit<ffi::mp3dec_t>);
 
-/// Conditional type used to represent one PCM sample in output data.
-///
-/// Normally a signed 16-bit integer (`i16`), but if the *"float"* feature is enabled,
-/// it's a 32-bit single-precision float (`f32`).
-#[cfg(not(feature = "float"))]
-pub type Sample = i16;
-#[cfg(feature = "float")]
+/// Represents one PCM sample in output data.
 pub type Sample = f32;
 
 impl<'src> Decoder<'src> {

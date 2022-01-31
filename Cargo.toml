@@ -28,7 +28,6 @@ libc = "0.2"
 
 [features]
 default = ["simd"]
-float = []
 mp1-mp2 = []
 nightly-docs = [] # internal
 simd = []

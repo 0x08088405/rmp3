@@ -3,10 +3,8 @@ fn main() {
     let mut build = cc::Build::new();
 
     build.include("ffi/minimp3");
+    build.define("MINIMP3_FLOAT_OUTPUT", None);
 
-    if cfg!(feature = "float") {
-        build.define("MINIMP3_FLOAT_OUTPUT", None);
-    }
     if cfg!(not(feature = "simd")) {
         build.define("MINIMP3_NO_SIMD", None);
     }
