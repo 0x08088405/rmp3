@@ -76,7 +76,7 @@ impl<'src, 'pcm> Audio<'src, 'pcm> {
     #[inline]
     pub fn samples(&self) -> &'pcm [f32] {
         if let Some(buf) = self.pcm {
-            unsafe { slice::from_raw_parts(buf.as_ptr(), usize::from(self.sample_count.get())) }
+            unsafe { slice::from_raw_parts(buf.as_ptr(), usize::from(self.sample_count.get() * self.channels as u16)) }
         } else {
             &[]
         }
