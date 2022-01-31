@@ -1,12 +1,12 @@
 [package]
-name = "rmp3"
-version = "0.3.1"
+name = "empy"
+version = "1.0.0-alpha"
 description = "fast & safe no_std minimp3 wrapper"
-authors = ["viri <git@stuff.moe>"]
-edition = "2018"
+authors = ["viri <hi@viri.moe>"]
+edition = "2021"
 license = "CC0-1.0"
-homepage = "https://github.com/notviri/rmp3"
-repository = "https://github.com/notviri/rmp3"
+homepage = "https://github.com/viriuwu/rmp3"
+repository = "https://github.com/viriuwu/rmp3"
 documentation = "https://docs.rs/rmp3"
 readme = "README.md"
 
@@ -14,7 +14,7 @@ readme = "README.md"
 include = [
     "ffi/minimp3/minimp3.h",
     "ffi/minimp3.c",
-    "**/*.rs",
+    "src/**/*.rs",
     "Cargo.toml",
     "LICENSE",
 ]
