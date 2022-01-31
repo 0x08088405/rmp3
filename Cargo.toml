@@ -16,7 +16,7 @@ include = [
     "ffi/minimp3.c",
     "src/**/*.rs",
     "Cargo.toml",
-    "LICENSE",
+    "LICENCE",
 ]
 
 [build-dependencies]
