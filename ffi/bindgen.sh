@@ -18,4 +18,4 @@ bindgen ffi/bindgen.h \
         -- -I 'ffi/minimp3'
 
 # bindgen filter misses the unused stdint.h definitions
-sed -ri '/__u?int[0-9]/d' src/ffi.rs
+sed -ri '/type __u?int[0-9]/d' src/ffi.rs
