@@ -1,3 +1,5 @@
+//! Idiomatic `no_std` bindings to lieff's [minimp3](https://github.com/lieff/minimp3).
+
 #![warn(missing_docs)]
 
 #![no_std]
@@ -5,7 +7,7 @@
 // TODO: should the members here be pub(crate)? hope that won't need sed
 mod ffi;
 
-use core::{fmt, marker::PhantomData, mem::MaybeUninit, num::NonZeroU16, ptr, slice};
+use core::{fmt, marker::PhantomData, mem::MaybeUninit, ptr, slice};
 use chlorine::c_int;
 
 /// Maximum number of samples per frame.
@@ -25,7 +27,7 @@ pub struct Audio<'src, 'pcm> {
     bitrate: u16,
     channels: u8,
     mpeg_layer: u8,
-    sample_count: NonZeroU16,
+    sample_count: u16,
     sample_rate: u16,
 
     src: &'src [u8],
@@ -40,7 +42,7 @@ unsafe impl<'src, 'pcm> Sync for Audio<'src, 'pcm> {}
 impl<'src, 'pcm> Audio<'src, 'pcm> {
     /// Gets the bitrate of this frame in kb/s.
     ///
-    /// Interval: x ∈ [8, 448]
+    /// Possible values are in the interval [8, 448].
     #[inline]
     pub fn bitrate(&self) -> u16 {
         // TODO check what happens with the reserved bitrates
@@ -48,42 +50,50 @@ impl<'src, 'pcm> Audio<'src, 'pcm> {
     }
 
     /// Gets how many channels are in this frame.
+    ///
+    /// Possible values are one of {1, 2}.
     #[inline]
-    pub fn channels(&self) -> NonZeroU16 {
-        unsafe { NonZeroU16::new_unchecked(self.channels as u16) }
+    pub fn channels(&self) -> u8 {
+        self.channels
     }
 
     /// Gets the MPEG layer of this frame.
+    ///
+    /// Possible values are one of {1, 2, 3}.
     #[inline]
     pub fn mpeg_layer(&self) -> u8 {
         // TODO check what happens when the illegal 0b00 layer is passed
-        self.mpeg_layer as u8
+        self.mpeg_layer
     }
 
     /// Gets the number of samples in this frame per [channel](Self::channels).
+    ///
+    /// Possible values are in the interval (0, [`MAX_SAMPLES`]].
     #[inline]
-    pub fn sample_count(&self) -> NonZeroU16 {
+    pub fn sample_count(&self) -> u16 {
         self.sample_count
     }
 
     /// Gets the sample rate of this frame in Hz.
+    ///
+    /// Possible values are in the interval [8000, 44100].
     #[inline]
-    pub fn sample_rate(&self) -> NonZeroU16 {
+    pub fn sample_rate(&self) -> u16 {
         // TODO what happens with the DIY ones?
-        unsafe { NonZeroU16::new_unchecked(self.sample_rate as u16) }
+        self.sample_rate
     }
 
     /// Gets the slice of decoded samples.
     ///
-    /// Samples are interleaved, so this has the length of
+    /// If the samples weren't decoded, this is an empty slice.
+    ///
+    /// Channels are interleaved, so this has the length of
     /// [`channels`](Self::channels) * [`sample_count`](Self::sample_count),
     /// to a maximum of [`MAX_SAMPLES`](crate::MAX_SAMPLES).
-    ///
-    /// If the samples weren't decoded, this is an empty slice.
     #[inline]
     pub fn samples(&self) -> &'pcm [f32] {
         if let Some(buf) = self.pcm {
-            unsafe { slice::from_raw_parts(buf.as_ptr(), usize::from(self.sample_count.get() * self.channels as u16)) }
+            unsafe { slice::from_raw_parts(buf.as_ptr(), usize::from(self.sample_count * self.channels as u16)) }
         } else {
             &[]
         }
@@ -147,6 +157,8 @@ impl fmt::Debug for Audio<'_, '_> {
 ///         Frame::Audio(audio) => {
 ///             // note that you'd want to keep track of bitrate, channels, sample_rate
 ///             // they can differ between adjacent frames (especially bitrate for VBR)
+///
+///             // anyways, let's append the slice of initialised samples from the buffer
 ///             pcm.extend_from_slice(audio.samples());
 ///         },
 ///         Frame::Other(_) => (/* don't care */),
@@ -170,7 +182,7 @@ impl fmt::Debug for Audio<'_, '_> {
 /// while let Some((frame, bytes_consumed)) = decoder.decode(data, None) {
 ///     if let Frame::Audio(audio) = frame {
 ///         // note here that sample_count is *per channel* so it works out
-///         length += f64::from(audio.sample_count().get()) / f64::from(audio.sample_rate().get());
+///         length += f64::from(audio.sample_count()) / f64::from(audio.sample_rate());
 ///     }
 ///     data = &data[bytes_consumed..];
 /// }
@@ -218,13 +230,12 @@ impl Decoder {
             let info = &*info_recv.as_ptr();
 
             if sample_count != 0 {
-                let nz_u16 = NonZeroU16::new_unchecked;
                 let audio = Audio {
-                    bitrate: info.bitrate_kbps as u16,         // x ∈ [8, 448]
-                    channels: info.channels as u8,             // x ∈ {1, 2}
-                    mpeg_layer: info.layer as u8,              // x ∈ {1, 2, 3}
-                    sample_count: nz_u16(sample_count as u16), // x ∈ (0, MAX_SAMPLES]
-                    sample_rate: info.hz as u16,               // x ∈ [8000, 44100]
+                    bitrate: info.bitrate_kbps as u16, // x ∈ [8, 448]
+                    channels: info.channels as u8,     // x ∈ {1, 2}
+                    mpeg_layer: info.layer as u8,      // x ∈ {1, 2, 3}
+                    sample_count: sample_count as u16, // x ∈ (0, MAX_SAMPLES]
+                    sample_rate: info.hz as u16,       // x ∈ [8000, 44100]
 
                     src: frame_src(src, info),
                     pcm: ptr::NonNull::new(dest_ptr),
