@@ -1,6 +1,6 @@
 [package]
 name = "empy"
-version = "1.0.0-alpha"
+version = "1.0.0-alpha2"
 description = "fast & safe no_std minimp3 wrapper"
 authors = ["viri <hi@viri.moe>"]
 edition = "2021"
@@ -28,9 +28,4 @@ chlorine = "1.0"
 [features]
 default = ["simd"]
 mp1-mp2 = []
-nightly-docs = [] # internal
 simd = []
-std = []
-
-[package.metadata.docs.rs]
-features = ["nightly-docs", "std"]
