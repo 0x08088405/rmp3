@@ -32,6 +32,7 @@ mp1-mp2 = []
 nightly-docs = [] # internal
 simd = []
 std = []
+new-boxed = ["std"]
 
 [package.metadata.docs.rs]
 features = ["nightly-docs", "std"]

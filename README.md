@@ -55,3 +55,4 @@ https://github.com/rust-lang/cargo/issues/4328#issuecomment-652075026).**
 - `mp1-mp2`: Includes MP1 and MP2 decoding code.
 - `simd` *(default)*: Enables handwritten SIMD optimizations on eligible targets.
 - `std`: Adds things that require `std`,
+- `new-boxed`: Adds RawDecoder::new_boxed. Requires nightly and `std`.
