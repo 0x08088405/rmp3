@@ -35,6 +35,7 @@
 
 #![cfg_attr(feature = "nightly-docs", feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(feature = "new-boxed", feature(new_uninit))]
 
 #[doc(hidden)]
 pub mod ffi;
@@ -188,6 +189,7 @@ pub struct DecoderOwned<T> {
 /// # Ok(())
 /// # }
 /// ```
+#[repr(transparent)]
 pub struct RawDecoder(MaybeUninit<ffi::mp3dec_t>);
 
 /// Conditional type used to represent one PCM sample in output data.
@@ -372,6 +374,19 @@ impl RawDecoder {
             ffi::mp3dec_init(decoder.as_mut_ptr());
         }
         Self(decoder)
+    }
+
+    /// Construct a new `RawDecoder` on the heap without copying from the stack.
+    ///
+    /// Currently requires nightly.
+    #[cfg(feature = "new-boxed")]
+    pub fn new_boxed() -> Box<Self> {
+        let mut decoder: Box<MaybeUninit<ffi::mp3dec_t>> = Box::new_uninit();
+        unsafe {
+            ffi::mp3dec_init(decoder.as_mut_ptr());
+        }
+        let ptr = Box::into_raw(decoder) as *mut RawDecoder;
+        unsafe { Box::from_raw(ptr) }
     }
 
     /// Reads the next frame, skipping over potential garbage data.
